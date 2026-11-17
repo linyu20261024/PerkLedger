@@ -1,21 +1,23 @@
 import React, { useMemo, useState } from 'react';
-import { Copy, Edit3, Plus, Search, Trash2, X } from 'lucide-react';
+import { Copy, Database, Edit3, Plus, Search, Trash2, X } from 'lucide-react';
 import {
   AssetCategory,
   BenefitAsset,
   ChannelType,
   LedgerEntry,
+  MajorBenefitGroup,
   ReminderSettings,
 } from '../types/benefits';
 import {
-  ASSET_CATEGORY_LABELS,
-  CHANNEL_TYPE_LABELS,
+  MAJOR_GROUP_LABELS,
+  MAJOR_GROUP_ORDER,
   formatCurrency,
   formatQuantity,
   getAssetValueRmb,
   getDaysUntilExpiry,
   getExpiryLabel,
   getExpiryUrgency,
+  inferMajorGroup,
 } from '../utils/calculations';
 
 interface AssetsCatalogViewProps {
@@ -23,9 +25,12 @@ interface AssetsCatalogViewProps {
   ledger: LedgerEntry[];
   settings: ReminderSettings;
   selectedAsset: BenefitAsset | null;
+  majorGroupFilter: 'all' | MajorBenefitGroup;
+  onMajorGroupFilterChange: (group: 'all' | MajorBenefitGroup) => void;
   onSelectAsset: (asset: BenefitAsset | null) => void;
   onOpenAssetModal: (asset?: BenefitAsset) => void;
   onOpenConsumeModal: (assetId?: string) => void;
+  onOpenDataModal: () => void;
   onDeleteAsset: (assetId: string) => void;
   onCopyPath: (path: string, name: string) => void;
 }
@@ -35,9 +40,12 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
   ledger,
   settings,
   selectedAsset,
+  majorGroupFilter,
+  onMajorGroupFilterChange,
   onSelectAsset,
   onOpenAssetModal,
   onOpenConsumeModal,
+  onOpenDataModal,
   onDeleteAsset,
   onCopyPath,
 }) => {
@@ -52,12 +60,15 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
       .filter((a) => {
         if (categoryFilter !== 'all' && a.category !== categoryFilter) return false;
         if (channelFilter !== 'all' && a.channelType !== channelFilter) return false;
+        const group = a.majorGroup || inferMajorGroup(a.category, a.channelType, a.name);
+        if (majorGroupFilter !== 'all' && group !== majorGroupFilter) return false;
         if (!q) return true;
         return (
           a.name.toLowerCase().includes(q) ||
           a.channelName.toLowerCase().includes(q) ||
           a.appName.toLowerCase().includes(q) ||
           a.appPath.toLowerCase().includes(q) ||
+          MAJOR_GROUP_LABELS[group].toLowerCase().includes(q) ||
           (a.notes || '').toLowerCase().includes(q)
         );
       })
@@ -72,7 +83,7 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
         }
         return a.channelName.localeCompare(b.channelName, 'zh-CN');
       });
-  }, [assets, query, categoryFilter, channelFilter, sortBy]);
+  }, [assets, query, categoryFilter, channelFilter, majorGroupFilter, sortBy]);
 
   const totalFilteredValue = useMemo(
     () => filteredAssets.reduce((sum, a) => sum + getAssetValueRmb(a), 0),
@@ -115,6 +126,22 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
 
           <div className="flex flex-wrap items-center gap-2">
             <select
+              value={majorGroupFilter}
+              onChange={(e) =>
+                onMajorGroupFilterChange(e.target.value as 'all' | MajorBenefitGroup)
+              }
+              className="px-3 py-2 text-xs font-medium bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-teal-700 cursor-pointer"
+              aria-label="权益大类筛选"
+            >
+              <option value="all">全部权益大类</option>
+              {MAJOR_GROUP_ORDER.map((g) => (
+                <option key={g} value={g}>
+                  {MAJOR_GROUP_LABELS[g]}
+                </option>
+              ))}
+            </select>
+
+            <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as 'value' | 'expiry' | 'channel')}
               className="px-3 py-2 text-xs font-medium bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-teal-700 cursor-pointer"
@@ -124,6 +151,15 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
               <option value="expiry">按到期时间优先</option>
               <option value="channel">按渠道名称排序</option>
             </select>
+
+            <button
+              type="button"
+              onClick={onOpenDataModal}
+              className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Database className="w-3.5 h-3.5" />
+              导入 / 导出
+            </button>
 
             <button
               type="button"
@@ -232,6 +268,7 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
                   setQuery('');
                   setCategoryFilter('all');
                   setChannelFilter('all');
+                  onMajorGroupFilterChange('all');
                 }}
                 className="mt-4 px-3.5 py-2 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg cursor-pointer"
               >
@@ -272,8 +309,11 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
                         <td className="py-3.5 px-4 align-top">
                           <div className="font-medium text-slate-900">{asset.name}</div>
                           <div className="mt-0.5 text-xs text-slate-500">
-                            {asset.channelName} · {CHANNEL_TYPE_LABELS[asset.channelType]} ·{' '}
-                            {ASSET_CATEGORY_LABELS[asset.category]}
+                            {asset.channelName} ·{' '}
+                            {MAJOR_GROUP_LABELS[
+                              asset.majorGroup ||
+                                inferMajorGroup(asset.category, asset.channelType, asset.name)
+                            ]}
                           </div>
                         </td>
 
@@ -356,7 +396,17 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
             <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
               <div className="min-w-0">
                 <div className="text-xs text-slate-500">
-                  {selectedAsset.channelName} · {ASSET_CATEGORY_LABELS[selectedAsset.category]}
+                  {selectedAsset.channelName} ·{' '}
+                  {
+                    MAJOR_GROUP_LABELS[
+                      selectedAsset.majorGroup ||
+                        inferMajorGroup(
+                          selectedAsset.category,
+                          selectedAsset.channelType,
+                          selectedAsset.name
+                        )
+                    ]
+                  }
                 </div>
                 <h3 className="mt-1 text-base font-semibold text-slate-900">
                   {selectedAsset.name}

@@ -1,14 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import { Download, RotateCcw, Upload, X } from 'lucide-react';
+import { Download, FileSpreadsheet, RotateCcw, Upload, X } from 'lucide-react';
 import {
   AssetCategory,
   BenefitAsset,
   ChannelType,
   LedgerEntry,
   LedgerTxType,
+  MajorBenefitGroup,
+  MembershipBillingCycle,
+  MembershipRecord,
 } from '../types/benefits';
 import { getTodayISO } from '../data/seedData';
-import { formatCurrency, formatQuantity } from '../utils/calculations';
+import {
+  MAJOR_GROUP_LABELS,
+  MAJOR_GROUP_ORDER,
+  downloadAssetCsvTemplate,
+  exportAssetsToCSV,
+  exportLedgerToCSV,
+  exportMembershipsToCSV,
+  formatCurrency,
+  formatQuantity,
+  inferMajorGroup,
+} from '../utils/calculations';
+import { downloadExcelTemplate, exportWorkbookToExcel } from '../utils/excel';
 
 /* =========================================================
    1. Asset Create / Edit Modal
@@ -31,6 +45,8 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   const [channelType, setChannelType] = useState<ChannelType>('bank');
   const [appName, setAppName] = useState('');
   const [category, setCategory] = useState<AssetCategory>('points');
+  const [majorGroup, setMajorGroup] = useState<MajorBenefitGroup>('credit_points');
+  const [majorGroupManual, setMajorGroupManual] = useState(false);
   const [unitLabel, setUnitLabel] = useState('分');
   const [balance, setBalance] = useState('0');
   const [rmbPerUnit, setRmbPerUnit] = useState('0.02');
@@ -46,6 +62,11 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
       setChannelType(editingAsset.channelType);
       setAppName(editingAsset.appName);
       setCategory(editingAsset.category);
+      setMajorGroup(
+        editingAsset.majorGroup ||
+          inferMajorGroup(editingAsset.category, editingAsset.channelType, editingAsset.name)
+      );
+      setMajorGroupManual(true);
       setUnitLabel(editingAsset.unitLabel);
       setBalance(String(editingAsset.balance));
       setRmbPerUnit(String(editingAsset.rmbPerUnit));
@@ -58,6 +79,8 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
       setChannelType('bank');
       setAppName('');
       setCategory('points');
+      setMajorGroup('credit_points');
+      setMajorGroupManual(false);
       setUnitLabel('分');
       setBalance('1000');
       setRmbPerUnit('0.02');
@@ -71,6 +94,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
 
   const handleCategoryChange = (next: AssetCategory) => {
     setCategory(next);
+    if (!majorGroupManual) {
+      setMajorGroup(inferMajorGroup(next, channelType, name));
+    }
     if (!editingAsset) {
       if (next === 'points') {
         setUnitLabel('分');
@@ -88,6 +114,13 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
     }
   };
 
+  const handleChannelTypeChange = (next: ChannelType) => {
+    setChannelType(next);
+    if (!majorGroupManual) {
+      setMajorGroup(inferMajorGroup(category, next, name));
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const numBal = Math.max(0, Number(balance) || 0);
@@ -101,6 +134,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
         channelType,
         appName: appName.trim() || `${channelName.trim()}App`,
         category,
+        majorGroup,
         unitLabel: unitLabel.trim() || '份',
         balance: numBal,
         initialBalance: editingAsset ? editingAsset.initialBalance : numBal,
@@ -142,8 +176,14 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                 required
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="如：招行经典白洗车权益"
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setName(v);
+                  if (!majorGroupManual) {
+                    setMajorGroup(inferMajorGroup(category, channelType, v));
+                  }
+                }}
+                placeholder="如：招行经典白贵宾厅 / 盒马礼品卡"
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
               />
             </div>
@@ -163,32 +203,24 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">渠道分类</label>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                首页展示大类 *
+              </label>
               <select
-                value={channelType}
-                onChange={(e) => setChannelType(e.target.value as ChannelType)}
+                value={majorGroup}
+                onChange={(e) => {
+                  setMajorGroup(e.target.value as MajorBenefitGroup);
+                  setMajorGroupManual(true);
+                }}
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-teal-700"
               >
-                <option value="bank">银行渠道</option>
-                <option value="platform">生活平台</option>
-                <option value="retail">商超零售</option>
-                <option value="travel">航司酒店</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">资产类型</label>
-              <select
-                value={category}
-                onChange={(e) => handleCategoryChange(e.target.value as AssetCategory)}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-teal-700"
-              >
-                <option value="points">积分资产</option>
-                <option value="prepaid">储值卡</option>
-                <option value="voucher">有价卡券</option>
-                <option value="privilege">次数权益</option>
+                {MAJOR_GROUP_ORDER.map((g) => (
+                  <option key={g} value={g}>
+                    {MAJOR_GROUP_LABELS[g]}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -201,6 +233,36 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                 placeholder="如：掌上生活App"
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">渠道分类</label>
+              <select
+                value={channelType}
+                onChange={(e) => handleChannelTypeChange(e.target.value as ChannelType)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-teal-700"
+              >
+                <option value="bank">银行渠道</option>
+                <option value="platform">生活平台</option>
+                <option value="retail">商超零售</option>
+                <option value="travel">航司酒店</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">计量资产类型</label>
+              <select
+                value={category}
+                onChange={(e) => handleCategoryChange(e.target.value as AssetCategory)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-teal-700"
+              >
+                <option value="points">积分资产</option>
+                <option value="prepaid">储值卡</option>
+                <option value="voucher">有价卡券</option>
+                <option value="privilege">次数权益</option>
+              </select>
             </div>
           </div>
 
@@ -309,7 +371,277 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
 };
 
 /* =========================================================
-   2. Log Consumption / Earn / Expiry Modal
+   2. Membership Create / Edit Modal
+   ========================================================= */
+interface MembershipFormModalProps {
+  isOpen: boolean;
+  editingMembership: MembershipRecord | null;
+  onClose: () => void;
+  onSave: (
+    data: Omit<MembershipRecord, 'id' | 'updatedAt'>,
+    existingId?: string
+  ) => void;
+}
+
+export const MembershipFormModal: React.FC<MembershipFormModalProps> = ({
+  isOpen,
+  editingMembership,
+  onClose,
+  onSave,
+}) => {
+  const [name, setName] = useState('');
+  const [platform, setPlatform] = useState('');
+  const [tierLevel, setTierLevel] = useState('');
+  const [feeRmb, setFeeRmb] = useState('0');
+  const [billingCycle, setBillingCycle] = useState<MembershipBillingCycle>('yearly');
+  const [autoRenew, setAutoRenew] = useState(false);
+  const [expiryDate, setExpiryDate] = useState(getTodayISO());
+  const [remindBeforeDays, setRemindBeforeDays] = useState('15');
+  const [appPath, setAppPath] = useState('');
+  const [corePerks, setCorePerks] = useState('');
+  const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (editingMembership) {
+      setName(editingMembership.name);
+      setPlatform(editingMembership.platform);
+      setTierLevel(editingMembership.tierLevel);
+      setFeeRmb(String(editingMembership.feeRmb));
+      setBillingCycle(editingMembership.billingCycle);
+      setAutoRenew(editingMembership.autoRenew);
+      setExpiryDate(editingMembership.expiryDate);
+      setRemindBeforeDays(String(editingMembership.remindBeforeDays));
+      setAppPath(editingMembership.appPath);
+      setCorePerks(editingMembership.corePerks);
+      setNotes(editingMembership.notes || '');
+    } else {
+      setName('');
+      setPlatform('');
+      setTierLevel('年度会员');
+      setFeeRmb('99');
+      setBillingCycle('yearly');
+      setAutoRenew(false);
+      setExpiryDate(getTodayISO());
+      setRemindBeforeDays('15');
+      setAppPath('');
+      setCorePerks('');
+      setNotes('');
+    }
+  }, [isOpen, editingMembership]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !platform.trim() || !expiryDate) return;
+
+    onSave(
+      {
+        name: name.trim(),
+        platform: platform.trim(),
+        tierLevel: tierLevel.trim() || '标准会员',
+        feeRmb: Math.max(0, Number(feeRmb) || 0),
+        billingCycle,
+        autoRenew,
+        expiryDate,
+        remindBeforeDays: Math.max(1, Number(remindBeforeDays) || 15),
+        appPath: appPath.trim(),
+        corePerks: corePerks.trim(),
+        notes: notes.trim() || undefined,
+      },
+      editingMembership?.id
+    );
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[1px]">
+      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-lg">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-slate-900">
+            {editingMembership ? '编辑会员体系与续卡规则' : '录入会员体系与续卡提醒'}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 text-slate-400 hover:text-slate-700 rounded-md cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                会员名称 *
+              </label>
+              <input
+                required
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="如：京东PLUS会员 / 招行经典白金卡"
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                所属平台 / 机构 *
+              </label>
+              <input
+                required
+                type="text"
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+                placeholder="如：京东、淘宝、山姆、招商银行"
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">会员等级 / 卡别</label>
+              <input
+                type="text"
+                value={tierLevel}
+                onChange={(e) => setTierLevel(e.target.value)}
+                placeholder="如：卓越卡 / 黑钻"
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">续费周期</label>
+              <select
+                value={billingCycle}
+                onChange={(e) => setBillingCycle(e.target.value as MembershipBillingCycle)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-teal-700"
+              >
+                <option value="yearly">年卡（自动顺延12个月）</option>
+                <option value="quarterly">季卡（自动顺延3个月）</option>
+                <option value="monthly">月卡（自动顺延1个月）</option>
+                <option value="custom">自定义周期</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">会费 / 年费 (¥)</label>
+              <input
+                type="number"
+                step="any"
+                min="0"
+                value={feeRmb}
+                onChange={(e) => setFeeRmb(e.target.value)}
+                className="w-full px-3 py-2 text-sm font-mono-num border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                到期 / 续卡日期 *
+              </label>
+              <input
+                required
+                type="date"
+                value={expiryDate}
+                onChange={(e) => setExpiryDate(e.target.value)}
+                className="w-full px-3 py-2 text-sm font-mono-num border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                提前提醒天数
+              </label>
+              <select
+                value={remindBeforeDays}
+                onChange={(e) => setRemindBeforeDays(e.target.value)}
+                className="w-full px-3 py-2 text-sm font-mono-num border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-teal-700"
+              >
+                <option value="7">提前 7 天</option>
+                <option value="15">提前 15 天</option>
+                <option value="30">提前 30 天</option>
+                <option value="60">提前 60 天</option>
+              </select>
+            </div>
+
+            <label className="flex items-center gap-2 py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={autoRenew}
+                onChange={(e) => setAutoRenew(e.target.checked)}
+                className="rounded border-slate-300 text-teal-700 focus:ring-teal-700"
+              />
+              <span className="text-xs font-medium text-slate-700">已开启自动续费</span>
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">
+              包含核心权益摘要
+            </label>
+            <input
+              type="text"
+              value={corePerks}
+              onChange={(e) => setCorePerks(e.target.value)}
+              placeholder="如：免费洗牙1次、无限免运费、机场贵宾厅6次、折上95折"
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">
+              App 内续卡 / 取消自动续费路径
+            </label>
+            <input
+              type="text"
+              value={appPath}
+              onChange={(e) => setAppPath(e.target.value)}
+              placeholder="如：京东App → 我的 → PLUS会员 → 自动续费管理"
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">备注</label>
+            <input
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="如：可使用10000积分抵扣年费..."
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
+            />
+          </div>
+
+          <div className="pt-2 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg cursor-pointer"
+            >
+              {editingMembership ? '保存修改' : '确认录入'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+/* =========================================================
+   3. Log Consumption / Earn / Expiry Modal
    ========================================================= */
 interface ConsumeFormModalProps {
   isOpen: boolean;
@@ -366,7 +698,6 @@ export const ConsumeFormModal: React.FC<ConsumeFormModalProps> = ({
   const absQty = Math.max(0, Number(quantity) || 0);
   const estVal = selectedAsset ? Number((absQty * selectedAsset.rmbPerUnit).toFixed(2)) : 0;
 
-  // Compute saved amount from original - actualPaid, or manual override
   const computedSaved =
     manualSaved !== ''
       ? Math.max(0, Number(manualSaved) || 0)
@@ -442,7 +773,6 @@ export const ConsumeFormModal: React.FC<ConsumeFormModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4 text-sm">
-          {/* Type segmented control */}
           <div className="flex items-center p-0.5 bg-slate-100 rounded-lg">
             {(
               [
@@ -628,26 +958,36 @@ export const ConsumeFormModal: React.FC<ConsumeFormModalProps> = ({
 };
 
 /* =========================================================
-   3. Data Backup / Import / Reset Modal
+   4. Data Import / Export & Backup Modal
    ========================================================= */
 interface DataModalProps {
   isOpen: boolean;
+  assets: BenefitAsset[];
+  ledger: LedgerEntry[];
+  memberships: MembershipRecord[];
   onClose: () => void;
   onExportJSON: () => void;
   onImportJSON: (raw: string) => void;
+  onImportAssetsCSV: (raw: string) => void;
+  onImportExcel: (buffer: ArrayBuffer) => void;
   onClearAllData: () => void;
 }
 
 export const DataManageModal: React.FC<DataModalProps> = ({
   isOpen,
+  assets,
+  ledger,
+  memberships,
   onClose,
   onExportJSON,
   onImportJSON,
+  onImportAssetsCSV,
+  onImportExcel,
   onClearAllData,
 }) => {
   if (!isOpen) return null;
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -660,11 +1000,37 @@ export const DataManageModal: React.FC<DataModalProps> = ({
     reader.readAsText(file);
   };
 
+  const handleCsvFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        onImportAssetsCSV(reader.result);
+        onClose();
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleExcelFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result instanceof ArrayBuffer) {
+        onImportExcel(reader.result);
+        onClose();
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[1px]">
-      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md shadow-lg">
+      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-lg">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-slate-900">本地数据备份与管理</h3>
+          <h3 className="text-base font-semibold text-slate-900">数据导入与导出中心</h3>
           <button
             type="button"
             onClick={onClose}
@@ -674,27 +1040,128 @@ export const DataManageModal: React.FC<DataModalProps> = ({
           </button>
         </div>
 
-        <div className="p-5 space-y-3 text-sm">
-          <p className="text-xs text-slate-500 leading-relaxed">
-            所有渠道权益、App路径、消长流水与优惠记录均自动保存在当前浏览器本地存储中。你可随时导出 JSON 备份或恢复。
-          </p>
+        <div className="p-5 space-y-5 text-sm">
+          {/* Section A: Excel (.xlsx / .xls) 工作簿导入与导出 */}
+          <div className="space-y-2.5">
+            <div className="text-xs font-semibold text-slate-700">
+              Excel 工作簿导入与导出（.xlsx / .xls 多 Sheet 总账）
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => exportWorkbookToExcel(assets, ledger, memberships)}
+                className="py-2.5 px-3 text-xs font-medium text-slate-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                导出全量 Excel 总账 (.xlsx)
+              </button>
 
-          <button
-            type="button"
-            onClick={onExportJSON}
-            className="w-full py-2.5 px-4 text-xs font-medium text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
-          >
-            <Download className="w-4 h-4" />
-            导出全量 JSON 备份文件
-          </button>
+              <button
+                type="button"
+                onClick={downloadExcelTemplate}
+                className="py-2.5 px-3 text-xs font-medium text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                下载 Excel 导入模板 (.xlsx)
+              </button>
+            </div>
 
-          <label className="w-full py-2.5 px-4 text-xs font-medium text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center justify-center gap-2 transition-colors cursor-pointer">
-            <Upload className="w-4 h-4" />
-            从 JSON 文件恢复数据
-            <input type="file" accept=".json,application/json" onChange={handleFile} className="hidden" />
-          </label>
+            <label className="w-full py-2.5 px-4 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg inline-flex items-center justify-center gap-2 transition-colors cursor-pointer">
+              <Upload className="w-4 h-4" />
+              上传 Excel (.xlsx / .xls) 批量导入权益与会员
+              <input
+                type="file"
+                accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                onChange={handleExcelFile}
+                className="hidden"
+              />
+            </label>
+          </div>
 
-          <div className="pt-2 border-t border-slate-100">
+          {/* Section B: CSV 表格导出与批量导入 */}
+          <div className="pt-4 border-t border-slate-100 space-y-2.5">
+            <div className="text-xs font-semibold text-slate-700">
+              CSV 文本表格导入与导出
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => exportAssetsToCSV(assets)}
+                className="py-2 px-3 text-xs font-medium text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-teal-700" />
+                导出权益资产 CSV ({assets.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => exportLedgerToCSV(ledger)}
+                className="py-2 px-3 text-xs font-medium text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-teal-700" />
+                导出消长流水 CSV ({ledger.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => exportMembershipsToCSV(memberships)}
+                className="py-2 px-3 text-xs font-medium text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-teal-700" />
+                导出会员体系 CSV ({memberships.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={downloadAssetCsvTemplate}
+                className="py-2 px-3 text-xs font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                下载权益 CSV 导入模板
+              </button>
+            </div>
+
+            <label className="w-full py-2 px-4 text-xs font-medium text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center justify-center gap-2 transition-colors cursor-pointer">
+              <Upload className="w-4 h-4" />
+              上传 CSV 文件批量导入权益资产
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={handleCsvFile}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {/* Section B: JSON 全量备份与恢复 */}
+          <div className="pt-4 border-t border-slate-100 space-y-2.5">
+            <div className="text-xs font-semibold text-slate-700">
+              全量 JSON 备份与跨设备迁移（含权益、流水、会员与提醒设置）
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={onExportJSON}
+                className="py-2.5 px-3 text-xs font-medium text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                导出全量 JSON 备份
+              </button>
+
+              <label className="py-2.5 px-3 text-xs font-medium text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer">
+                <Upload className="w-4 h-4" />
+                从 JSON 备份恢复全部
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleJsonFile}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={() => {

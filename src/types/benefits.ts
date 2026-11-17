@@ -2,6 +2,15 @@ export type ChannelType = 'bank' | 'platform' | 'travel' | 'retail';
 
 export type AssetCategory = 'points' | 'voucher' | 'prepaid' | 'privilege';
 
+export type MajorBenefitGroup =
+  | 'credit_points' // 信用卡积分
+  | 'prepaid_stored' // 生活购物商旅平台储值
+  | 'platform_points' // 平台/航司/酒店积分
+  | 'lounge_travel' // 贵宾厅与商旅出行权益
+  | 'health_care' // 健康检查与医疗权益
+  | 'voucher_coupon' // 有价卡券与立减金
+  | 'lifestyle_service'; // 居家洗车与文娱权益
+
 export type LedgerTxType = 'earn' | 'consume' | 'expire' | 'adjust';
 
 export interface BenefitAsset {
@@ -11,13 +20,14 @@ export interface BenefitAsset {
   channelType: ChannelType;
   appName: string;
   category: AssetCategory;
+  majorGroup: MajorBenefitGroup;
   unitLabel: string; // e.g. '分', '元', '张', '次'
   balance: number;
   initialBalance: number;
-  rmbPerUnit: number; // valuation rate: for prepaid RMB card = 1; for points = e.g. 0.02; for voucher = face value
-  appPath: string; // Detailed in-app path, e.g. "招商银行App → 搜索「高端权益」→ 精选权益 → 机场贵宾厅"
+  rmbPerUnit: number;
+  appPath: string;
   expiryDate: string | null; // YYYY-MM-DD or null for perpetual
-  snoozedUntil?: string | null; // YYYY-MM-DD if user snoozed reminder
+  snoozedUntil?: string | null;
   notes?: string;
   updatedAt: string;
 }
@@ -29,15 +39,34 @@ export interface LedgerEntry {
   channelName: string;
   category: AssetCategory;
   type: LedgerTxType;
-  deltaQuantity: number; // positive for earn/adjust-up, negative for consume/expire
+  deltaQuantity: number;
   unitLabel: string;
-  estimatedValueRmb: number; // absolute RMB value impact of this flow
-  originalPriceRmb?: number; // original order/ticket price before benefit
-  actualPaidRmb?: number; // out-of-pocket cash paid
-  savedRmb: number; // actual discount / savings achieved
+  estimatedValueRmb: number;
+  originalPriceRmb?: number;
+  actualPaidRmb?: number;
+  savedRmb: number;
   merchantOrScene: string;
   date: string; // YYYY-MM-DD
   notes?: string;
+}
+
+export type MembershipBillingCycle = 'monthly' | 'quarterly' | 'yearly' | 'custom';
+
+export interface MembershipRecord {
+  id: string;
+  name: string; // e.g. 京东PLUS会员 / 招行经典白金卡
+  platform: string; // e.g. 京东 / 招商银行 / 山姆
+  tierLevel: string; // e.g. 年卡 / 黑钻会员 / 经典白
+  feeRmb: number; // 年费或续费成本
+  billingCycle: MembershipBillingCycle;
+  autoRenew: boolean;
+  expiryDate: string; // YYYY-MM-DD
+  remindBeforeDays: number; // e.g. 15, 30
+  appPath: string; // 查看或取消自动续费/续卡路径
+  corePerks: string; // 包含核心权益摘要
+  snoozedUntil?: string | null;
+  notes?: string;
+  updatedAt: string;
 }
 
 export interface ReminderSettings {
@@ -48,6 +77,7 @@ export interface ReminderSettings {
 export type ActiveTab =
   | 'overview'
   | 'catalog'
+  | 'memberships'
   | 'reminders'
   | 'ledger'
   | 'savings';

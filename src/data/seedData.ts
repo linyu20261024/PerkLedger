@@ -1,4 +1,9 @@
-import { BenefitAsset, LedgerEntry, ReminderSettings } from '../types/benefits';
+import {
+  BenefitAsset,
+  LedgerEntry,
+  MembershipRecord,
+  ReminderSettings,
+} from '../types/benefits';
 
 export function formatISODate(date: Date): string {
   const y = date.getFullYear();
@@ -18,14 +23,23 @@ export function shiftDateISO(baseISO: string, offsetDays: number): string {
   return formatISODate(dt);
 }
 
+export function addMonthsISO(baseISO: string, months: number): string {
+  const [y, m, d] = baseISO.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setMonth(dt.getMonth() + months);
+  return formatISODate(dt);
+}
+
 export function createEmptyState(): {
   assets: BenefitAsset[];
   ledger: LedgerEntry[];
+  memberships: MembershipRecord[];
   settings: ReminderSettings;
 } {
   return {
     assets: [],
     ledger: [],
+    memberships: [],
     settings: {
       warningWindowDays: 30,
       urgentWindowDays: 7,
