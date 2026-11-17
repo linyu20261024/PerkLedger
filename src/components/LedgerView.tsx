@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Download, Plus, Search, Trash2, X } from 'lucide-react';
+import { ArrowDownUp, ArrowRight, Download, Plus, Search, Trash2, X } from 'lucide-react';
 import { BenefitAsset, LedgerEntry, LedgerTxType } from '../types/benefits';
 import {
   ASSET_CATEGORY_LABELS,
@@ -14,6 +14,7 @@ interface LedgerViewProps {
   ledger: LedgerEntry[];
   onOpenConsumeModal: (assetId?: string) => void;
   onDeleteLedgerEntry: (entryId: string) => void;
+  onNavigateSavings?: () => void;
 }
 
 export const LedgerView: React.FC<LedgerViewProps> = ({
@@ -21,11 +22,15 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
   ledger,
   onOpenConsumeModal,
   onDeleteLedgerEntry,
+  onNavigateSavings,
 }) => {
   const [subTab, setSubTab] = useState<'single' | 'composite'>('single');
   const [typeFilter, setTypeFilter] = useState<'all' | LedgerTxType>('all');
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [singleSortBy, setSingleSortBy] = useState<'date' | 'saved' | 'value'>('date');
+  const [compositeSortBy, setCompositeSortBy] = useState<'total' | 'balance' | 'saved'>('total');
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
 
   const channels = useMemo(() => {
     const set = new Set(ledger.map((tx) => tx.channelName));
@@ -46,8 +51,19 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
           (tx.notes || '').toLowerCase().includes(q)
         );
       })
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [ledger, typeFilter, channelFilter, search]);
+      .sort((a, b) => {
+        if (singleSortBy === 'saved') {
+          const diff = a.savedRmb - b.savedRmb;
+          return sortDir === 'desc' ? -diff : diff;
+        }
+        if (singleSortBy === 'value') {
+          const diff = a.estimatedValueRmb - b.estimatedValueRmb;
+          return sortDir === 'desc' ? -diff : diff;
+        }
+        const cmp = a.date.localeCompare(b.date);
+        return sortDir === 'desc' ? -cmp : cmp;
+      });
+  }, [ledger, typeFilter, channelFilter, search, singleSortBy, sortDir]);
 
   const compositeSummaries = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -60,8 +76,16 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
           row.asset.channelName.toLowerCase().includes(q)
         );
       })
-      .sort((a, b) => b.currentValueRmb + b.totalSavedRmb - (a.currentValueRmb + a.totalSavedRmb));
-  }, [assets, ledger, channelFilter, search]);
+      .sort((a, b) => {
+        const diff =
+          compositeSortBy === 'balance'
+            ? a.currentValueRmb - b.currentValueRmb
+            : compositeSortBy === 'saved'
+              ? a.totalSavedRmb - b.totalSavedRmb
+              : a.currentValueRmb + a.totalSavedRmb - (b.currentValueRmb + b.totalSavedRmb);
+        return sortDir === 'desc' ? -diff : diff;
+      });
+  }, [assets, ledger, channelFilter, search, compositeSortBy, sortDir]);
 
   const singleTotals = useMemo(() => {
     let inflowRmb = 0;
@@ -80,12 +104,12 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
   }, [filteredLedger]);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       {/* Toolbar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+      <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 space-y-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center p-0.5 bg-slate-100 rounded-lg">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+            <div className="flex items-center p-0.5 bg-slate-100 rounded-lg overflow-x-auto max-w-full">
               <button
                 type="button"
                 onClick={() => setSubTab('single')}
@@ -110,20 +134,20 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
               </button>
             </div>
 
-            <div className="relative w-64 sm:w-72">
+            <div className="relative w-full sm:w-64 lg:w-72">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="筛选商户、权益名称或备注..."
-                className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-teal-700"
+                className="w-full min-h-[38px] pl-8 pr-8 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-teal-700"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -135,7 +159,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
             <select
               value={channelFilter}
               onChange={(e) => setChannelFilter(e.target.value)}
-              className="px-3 py-1.5 text-xs font-medium bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-teal-700 cursor-pointer"
+              className="min-h-[38px] px-2.5 py-1.5 text-xs font-medium bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-teal-700 cursor-pointer"
             >
               <option value="all">全部渠道</option>
               {channels.map((c) => (
@@ -145,10 +169,45 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
               ))}
             </select>
 
+            {subTab === 'single' ? (
+              <select
+                value={singleSortBy}
+                onChange={(e) => setSingleSortBy(e.target.value as 'date' | 'saved' | 'value')}
+                className="min-h-[38px] px-2.5 py-1.5 text-xs font-medium bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-teal-700 cursor-pointer"
+                aria-label="流水排序字段"
+              >
+                <option value="date">按发生日期</option>
+                <option value="saved">按优惠金额</option>
+                <option value="value">按折合估值</option>
+              </select>
+            ) : (
+              <select
+                value={compositeSortBy}
+                onChange={(e) =>
+                  setCompositeSortBy(e.target.value as 'total' | 'balance' | 'saved')
+                }
+                className="min-h-[38px] px-2.5 py-1.5 text-xs font-medium bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-teal-700 cursor-pointer"
+                aria-label="汇总排序字段"
+              >
+                <option value="total">按综合贡献</option>
+                <option value="balance">按结余估值</option>
+                <option value="saved">按累计优惠</option>
+              </select>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
+              className="min-h-[38px] px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <ArrowDownUp className="w-3.5 h-3.5" />
+              {sortDir === 'desc' ? '降序' : '升序'}
+            </button>
+
             <button
               type="button"
               onClick={() => exportLedgerToCSV(filteredLedger)}
-              className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="min-h-[38px] px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               导出 CSV
@@ -157,7 +216,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
             <button
               type="button"
               onClick={() => onOpenConsumeModal()}
-              className="px-3.5 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="min-h-[38px] px-3.5 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               记一笔消长
@@ -166,8 +225,8 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
         </div>
 
         {subTab === 'single' && (
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
-            <div className="flex items-center p-0.5 bg-slate-100 rounded-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
+            <div className="flex items-center p-0.5 bg-slate-100 rounded-lg overflow-x-auto max-w-full">
               {(
                 [
                   { id: 'all', label: '全部流水' },
@@ -181,7 +240,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
                   key={tab.id}
                   type="button"
                   onClick={() => setTypeFilter(tab.id)}
-                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     typeFilter === tab.id
                       ? 'bg-white text-slate-900 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
@@ -192,7 +251,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
               ))}
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-xs font-mono-num">
+            <div className="flex flex-wrap items-center justify-between sm:justify-end gap-x-4 gap-y-1 text-xs font-mono-num">
               <span className="text-slate-500">
                 入账: <strong className="text-teal-700">+{formatCurrency(singleTotals.inflowRmb)}</strong>
               </span>
@@ -203,171 +262,304 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
                 过期: <strong className="text-red-600">-{formatCurrency(singleTotals.expireRmb)}</strong>
               </span>
               <span className="text-slate-500">
-                节省优惠: <strong className="text-emerald-700">{formatCurrency(singleTotals.savedRmb)}</strong>
+                节省: <strong className="text-emerald-700">{formatCurrency(singleTotals.savedRmb)}</strong>
               </span>
+              {onNavigateSavings && (
+                <button
+                  type="button"
+                  onClick={onNavigateSavings}
+                  className="font-sans text-teal-700 hover:text-teal-800 font-medium inline-flex items-center gap-0.5 cursor-pointer"
+                >
+                  优惠汇总分析
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              )}
             </div>
           </div>
         )}
       </div>
 
-      {/* Table Content */}
+      {/* Content */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         {subTab === 'single' ? (
           filteredLedger.length === 0 ? (
-            <div className="p-12 text-center text-sm text-slate-500">
+            <div className="p-10 sm:p-12 text-center text-sm text-slate-500">
               当前筛选条件下暂无消长流水记录。
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-medium text-slate-500">
-                    <th className="py-3 px-4">日期</th>
-                    <th className="py-3 px-4">权益与渠道</th>
-                    <th className="py-3 px-4">消长类型</th>
-                    <th className="py-3 px-4">消费场景 / 变动说明</th>
-                    <th className="py-3 px-4 text-right">数量变动</th>
-                    <th className="py-3 px-4 text-right">原价 / 实付</th>
-                    <th className="py-3 px-4 text-right">节省优惠</th>
-                    <th className="py-3 px-4 text-right">操作</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
-                  {filteredLedger.map((tx) => {
-                    const typeMap: Record<LedgerTxType, { label: string; cls: string }> = {
-                      earn: { label: '获取/入账', cls: 'text-teal-700 font-medium' },
-                      consume: { label: '核销/消费', cls: 'text-slate-700 font-medium' },
-                      expire: { label: '过期作废', cls: 'text-red-600 font-medium' },
-                      adjust: { label: '盘点调整', cls: 'text-amber-700 font-medium' },
-                    };
-                    const meta = typeMap[tx.type];
+            <>
+              {/* Mobile Card View (< md) */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {filteredLedger.map((tx) => {
+                  const typeMap: Record<LedgerTxType, { label: string; cls: string }> = {
+                    earn: { label: '获取/入账', cls: 'text-teal-700 font-medium' },
+                    consume: { label: '核销/消费', cls: 'text-slate-700 font-medium' },
+                    expire: { label: '过期作废', cls: 'text-red-600 font-medium' },
+                    adjust: { label: '盘点调整', cls: 'text-amber-700 font-medium' },
+                  };
+                  const meta = typeMap[tx.type];
 
-                    return (
-                      <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3 px-4 font-mono-num text-xs text-slate-600 whitespace-nowrap">
-                          {tx.date}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="font-medium text-slate-900 text-xs sm:text-sm">
+                  return (
+                    <div key={tx.id} className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-slate-900 truncate">
+                            {tx.merchantOrScene}
+                          </div>
+                          <div className="mt-0.5 text-xs text-slate-500">
+                            <span className="font-mono-num">{tx.date}</span> · {tx.channelName} ·{' '}
                             {tx.assetName}
                           </div>
-                          <div className="text-xs text-slate-500">
-                            {tx.channelName} · {ASSET_CATEGORY_LABELS[tx.category]}
+                        </div>
+                        <div className="text-right shrink-0 font-mono-num">
+                          <div
+                            className={`text-sm font-semibold ${
+                              tx.type === 'expire'
+                                ? 'text-red-600'
+                                : tx.deltaQuantity >= 0
+                                  ? 'text-teal-700'
+                                  : 'text-slate-900'
+                            }`}
+                          >
+                            {tx.deltaQuantity >= 0 ? '+' : ''}
+                            {formatQuantity(tx.deltaQuantity, tx.unitLabel)}
                           </div>
-                        </td>
-                        <td className={`py-3 px-4 text-xs whitespace-nowrap ${meta.cls}`}>
-                          {meta.label}
-                        </td>
-                        <td className="py-3 px-4 max-w-xs">
-                          <div className="text-xs text-slate-800">{tx.merchantOrScene}</div>
-                          {tx.notes && (
-                            <div className="text-[11px] text-slate-400 truncate mt-0.5">
-                              {tx.notes}
+                          {tx.savedRmb > 0 && (
+                            <div className="text-xs font-semibold text-emerald-700">
+                              省 {formatCurrency(tx.savedRmb)}
                             </div>
                           )}
-                        </td>
-                        <td
-                          className={`py-3 px-4 text-right font-mono-num whitespace-nowrap font-medium ${
-                            tx.type === 'expire'
-                              ? 'text-red-600'
-                              : tx.deltaQuantity >= 0
-                                ? 'text-teal-700'
-                                : 'text-slate-900'
-                          }`}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 text-xs pt-0.5">
+                        <div className="flex items-center gap-2 text-slate-500 min-w-0">
+                          <span className={meta.cls}>{meta.label}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className="font-mono-num truncate">
+                            {tx.originalPriceRmb != null
+                              ? `原 ${formatCurrency(tx.originalPriceRmb)} → 实 ${formatCurrency(tx.actualPaidRmb ?? 0)}`
+                              : `估值 ${formatCurrency(tx.estimatedValueRmb)}`}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onDeleteLedgerEntry(tx.id)}
+                          className="min-h-[36px] px-2.5 text-xs text-slate-500 hover:text-red-600 inline-flex items-center gap-1 rounded-md cursor-pointer"
                         >
-                          {tx.deltaQuantity >= 0 ? '+' : ''}
-                          {formatQuantity(tx.deltaQuantity, tx.unitLabel)}
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono-num text-xs text-slate-500 whitespace-nowrap">
-                          {tx.originalPriceRmb != null
-                            ? `${formatCurrency(tx.originalPriceRmb)} → ${formatCurrency(tx.actualPaidRmb ?? 0)}`
-                            : `估值 ${formatCurrency(tx.estimatedValueRmb)}`}
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono-num whitespace-nowrap">
-                          {tx.savedRmb > 0 ? (
-                            <span className="font-semibold text-emerald-700">
-                              +{formatCurrency(tx.savedRmb)}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-slate-400">—</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => onDeleteLedgerEntry(tx.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-md transition-colors cursor-pointer"
-                            title="撤销并删除该流水"
+                          <Trash2 className="w-3.5 h-3.5" />
+                          撤销
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table View (>= md) */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-medium text-slate-500">
+                      <th className="py-3 px-4">日期</th>
+                      <th className="py-3 px-4">权益与渠道</th>
+                      <th className="py-3 px-4">消长类型</th>
+                      <th className="py-3 px-4">消费场景 / 变动说明</th>
+                      <th className="py-3 px-4 text-right">数量变动</th>
+                      <th className="py-3 px-4 text-right">原价 / 实付</th>
+                      <th className="py-3 px-4 text-right">节省优惠</th>
+                      <th className="py-3 px-4 text-right">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                    {filteredLedger.map((tx) => {
+                      const typeMap: Record<LedgerTxType, { label: string; cls: string }> = {
+                        earn: { label: '获取/入账', cls: 'text-teal-700 font-medium' },
+                        consume: { label: '核销/消费', cls: 'text-slate-700 font-medium' },
+                        expire: { label: '过期作废', cls: 'text-red-600 font-medium' },
+                        adjust: { label: '盘点调整', cls: 'text-amber-700 font-medium' },
+                      };
+                      const meta = typeMap[tx.type];
+
+                      return (
+                        <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-4 font-mono-num text-xs text-slate-600 whitespace-nowrap">
+                            {tx.date}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="font-medium text-slate-900 text-xs sm:text-sm">
+                              {tx.assetName}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {tx.channelName} · {ASSET_CATEGORY_LABELS[tx.category]}
+                            </div>
+                          </td>
+                          <td className={`py-3 px-4 text-xs whitespace-nowrap ${meta.cls}`}>
+                            {meta.label}
+                          </td>
+                          <td className="py-3 px-4 max-w-xs">
+                            <div className="text-xs text-slate-800">{tx.merchantOrScene}</div>
+                            {tx.notes && (
+                              <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                                {tx.notes}
+                              </div>
+                            )}
+                          </td>
+                          <td
+                            className={`py-3 px-4 text-right font-mono-num whitespace-nowrap font-medium ${
+                              tx.type === 'expire'
+                                ? 'text-red-600'
+                                : tx.deltaQuantity >= 0
+                                  ? 'text-teal-700'
+                                  : 'text-slate-900'
+                            }`}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                            {tx.deltaQuantity >= 0 ? '+' : ''}
+                            {formatQuantity(tx.deltaQuantity, tx.unitLabel)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono-num text-xs text-slate-500 whitespace-nowrap">
+                            {tx.originalPriceRmb != null
+                              ? `${formatCurrency(tx.originalPriceRmb)} → ${formatCurrency(tx.actualPaidRmb ?? 0)}`
+                              : `估值 ${formatCurrency(tx.estimatedValueRmb)}`}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono-num whitespace-nowrap">
+                            {tx.savedRmb > 0 ? (
+                              <span className="font-semibold text-emerald-700">
+                                +{formatCurrency(tx.savedRmb)}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => onDeleteLedgerEntry(tx.id)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 rounded-md transition-colors cursor-pointer"
+                              title="撤销并删除该流水"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )
         ) : compositeSummaries.length === 0 ? (
-          <div className="p-12 text-center text-sm text-slate-500">
+          <div className="p-10 sm:p-12 text-center text-sm text-slate-500">
             当前暂无权益资产，录入资产后将在此汇总各渠道期初、新增、核销与结余明细。
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-medium text-slate-500">
-                  <th className="py-3 px-4">权益与渠道</th>
-                  <th className="py-3 px-4 text-right">期初建档余量</th>
-                  <th className="py-3 px-4 text-right">累计获取 (+)</th>
-                  <th className="py-3 px-4 text-right">累计核销 (-)</th>
-                  <th className="py-3 px-4 text-right">过期损耗 (-)</th>
-                  <th className="py-3 px-4 text-right">当前结余</th>
-                  <th className="py-3 px-4 text-right">结余估值</th>
-                  <th className="py-3 px-4 text-right">累计创造优惠</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
-                {compositeSummaries.map((row) => (
-                  <tr key={row.asset.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4">
-                      <div className="font-medium text-slate-900">{row.asset.name}</div>
-                      <div className="text-xs text-slate-500">
+          <>
+            {/* Mobile Composite Cards (< md) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {compositeSummaries.map((row) => (
+                <div key={row.asset.id} className="p-4 space-y-2.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-900 truncate">
+                        {row.asset.name}
+                      </div>
+                      <div className="mt-0.5 text-xs text-slate-500">
                         {row.asset.channelName} · {ASSET_CATEGORY_LABELS[row.asset.category]} ·{' '}
                         {row.txCount} 笔流水
                       </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono-num text-xs text-slate-500 whitespace-nowrap">
-                      {formatQuantity(row.asset.initialBalance, row.asset.unitLabel)}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono-num text-teal-700 whitespace-nowrap">
-                      +{formatQuantity(row.earnedTotal, row.asset.unitLabel)}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono-num text-slate-800 whitespace-nowrap">
-                      -{formatQuantity(row.consumedTotal, row.asset.unitLabel)}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono-num text-red-600 whitespace-nowrap">
-                      {row.expiredTotal > 0
-                        ? `-${formatQuantity(row.expiredTotal, row.asset.unitLabel)}`
-                        : '0'}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono-num font-semibold text-slate-900 whitespace-nowrap">
-                      {formatQuantity(row.asset.balance, row.asset.unitLabel)}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono-num text-slate-700 whitespace-nowrap">
-                      {formatCurrency(row.currentValueRmb)}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono-num font-semibold text-emerald-700 whitespace-nowrap">
-                      {formatCurrency(row.totalSavedRmb)}
-                    </td>
+                    </div>
+                    <div className="text-right shrink-0 font-mono-num">
+                      <div className="text-sm font-bold text-emerald-700">
+                        省 {formatCurrency(row.totalSavedRmb)}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        结余 {formatCurrency(row.currentValueRmb)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 pt-1 text-xs font-mono-num bg-slate-50 rounded-lg p-2.5">
+                    <div>
+                      <div className="text-[11px] font-sans text-slate-400">累计获取</div>
+                      <div className="text-teal-700 font-medium mt-0.5">
+                        +{formatQuantity(row.earnedTotal, row.asset.unitLabel)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-sans text-slate-400">累计核销</div>
+                      <div className="text-slate-800 font-medium mt-0.5">
+                        -{formatQuantity(row.consumedTotal, row.asset.unitLabel)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-sans text-slate-400">当前结余</div>
+                      <div className="text-slate-900 font-semibold mt-0.5">
+                        {formatQuantity(row.asset.balance, row.asset.unitLabel)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Composite Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-medium text-slate-500">
+                    <th className="py-3 px-4">权益与渠道</th>
+                    <th className="py-3 px-4 text-right">期初建档余量</th>
+                    <th className="py-3 px-4 text-right">累计获取 (+)</th>
+                    <th className="py-3 px-4 text-right">累计核销 (-)</th>
+                    <th className="py-3 px-4 text-right">过期损耗 (-)</th>
+                    <th className="py-3 px-4 text-right">当前结余</th>
+                    <th className="py-3 px-4 text-right">结余估值</th>
+                    <th className="py-3 px-4 text-right">累计创造优惠</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {compositeSummaries.map((row) => (
+                    <tr key={row.asset.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4">
+                        <div className="font-medium text-slate-900">{row.asset.name}</div>
+                        <div className="text-xs text-slate-500">
+                          {row.asset.channelName} · {ASSET_CATEGORY_LABELS[row.asset.category]} ·{' '}
+                          {row.txCount} 笔流水
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono-num text-xs text-slate-500 whitespace-nowrap">
+                        {formatQuantity(row.asset.initialBalance, row.asset.unitLabel)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono-num text-teal-700 whitespace-nowrap">
+                        +{formatQuantity(row.earnedTotal, row.asset.unitLabel)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono-num text-slate-800 whitespace-nowrap">
+                        -{formatQuantity(row.consumedTotal, row.asset.unitLabel)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono-num text-red-600 whitespace-nowrap">
+                        {row.expiredTotal > 0
+                          ? `-${formatQuantity(row.expiredTotal, row.asset.unitLabel)}`
+                          : '0'}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono-num font-semibold text-slate-900 whitespace-nowrap">
+                        {formatQuantity(row.asset.balance, row.asset.unitLabel)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono-num text-slate-700 whitespace-nowrap">
+                        {formatCurrency(row.currentValueRmb)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono-num font-semibold text-emerald-700 whitespace-nowrap">
+                        {formatCurrency(row.totalSavedRmb)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>
   );
 };
+

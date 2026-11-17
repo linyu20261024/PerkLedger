@@ -7,9 +7,10 @@ export type MajorBenefitGroup =
   | 'prepaid_stored' // 生活购物商旅平台储值
   | 'platform_points' // 平台/航司/酒店积分
   | 'lounge_travel' // 贵宾厅与商旅出行权益
-  | 'health_care' // 健康检查与医疗权益
+  | 'health_care' // 健康检查与医疗权益（含体检、口腔检查等）
   | 'voucher_coupon' // 有价卡券与立减金
-  | 'lifestyle_service'; // 居家洗车与文娱权益
+  | 'home_car_service' // 居家与洗车服务权益
+  | 'entertainment'; // 文娱与视听权益
 
 export type LedgerTxType = 'earn' | 'consume' | 'expire' | 'adjust';
 

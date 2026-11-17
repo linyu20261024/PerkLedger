@@ -134,7 +134,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center p-0.5 bg-slate-100 rounded-lg">
+          <div className="flex items-center p-0.5 bg-slate-100 rounded-lg overflow-x-auto max-w-full">
             {(
               [
                 { id: 'active', label: `卡券积分临期 (${classifiedAssets.activeAlerts.length})` },
@@ -147,7 +147,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => setFilterScope(tab.id)}
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   filterScope === tab.id
                     ? 'bg-white text-slate-900 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -231,14 +231,14 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
                     <button
                       type="button"
                       onClick={() => onSnoozeMembership(m.id, 7)}
-                      className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+                      className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
                     >
                       暂缓7天
                     </button>
                     <button
                       type="button"
                       onClick={() => onRenewMembership(m)}
-                      className="px-3.5 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg inline-flex items-center gap-1 cursor-pointer"
+                      className="min-h-[40px] px-3.5 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg inline-flex items-center gap-1 cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       确认续卡顺延
@@ -337,7 +337,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onSnoozeAsset(asset.id, null)}
-                          className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                          className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
                         >
                           恢复提醒
                         </button>
@@ -345,7 +345,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onSnoozeAsset(asset.id, 3)}
-                          className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
                         >
                           <Clock className="w-3.5 h-3.5" />
                           暂缓3天
@@ -356,7 +356,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onMarkExpired(asset)}
-                          className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors cursor-pointer"
+                          className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors cursor-pointer"
                         >
                           记为过期损耗
                         </button>
@@ -365,7 +365,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
                       <button
                         type="button"
                         onClick={() => onOpenConsumeModal(asset.id)}
-                        className="px-3.5 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                        className="min-h-[40px] px-3.5 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                       >
                         立即核销消费
                       </button>

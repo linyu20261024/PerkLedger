@@ -32,7 +32,8 @@ export const MAJOR_GROUP_LABELS: Record<MajorBenefitGroup, string> = {
   lounge_travel: '贵宾厅与商旅出行权益',
   health_care: '健康检查与医疗权益',
   voucher_coupon: '有价卡券与立减金',
-  lifestyle_service: '居家洗车与文娱权益',
+  home_car_service: '居家与洗车服务权益',
+  entertainment: '文娱与视听权益',
 };
 
 export const MAJOR_GROUP_ORDER: MajorBenefitGroup[] = [
@@ -42,7 +43,8 @@ export const MAJOR_GROUP_ORDER: MajorBenefitGroup[] = [
   'lounge_travel',
   'health_care',
   'voucher_coupon',
-  'lifestyle_service',
+  'home_car_service',
+  'entertainment',
 ];
 
 export const BILLING_CYCLE_LABELS: Record<MembershipBillingCycle, string> = {
@@ -61,10 +63,15 @@ export function inferMajorGroup(
   if (
     lower.includes('体检') ||
     lower.includes('健康') ||
+    lower.includes('口腔') ||
+    lower.includes('牙科') ||
+    lower.includes('齿科') ||
     lower.includes('洗牙') ||
     lower.includes('洁牙') ||
+    lower.includes('补牙') ||
     lower.includes('医疗') ||
-    lower.includes('挂号')
+    lower.includes('挂号') ||
+    lower.includes('问诊')
   ) {
     return 'health_care';
   }
@@ -73,9 +80,38 @@ export function inferMajorGroup(
     lower.includes('接送') ||
     lower.includes('房券') ||
     lower.includes('延误') ||
-    lower.includes('快速安检')
+    lower.includes('快速安检') ||
+    lower.includes('休息室')
   ) {
     return 'lounge_travel';
+  }
+  if (
+    lower.includes('电影') ||
+    lower.includes('影票') ||
+    lower.includes('视频') ||
+    lower.includes('音乐') ||
+    lower.includes('文娱') ||
+    lower.includes('演出') ||
+    lower.includes('阅读') ||
+    lower.includes('听书') ||
+    lower.includes('爱奇艺') ||
+    lower.includes('腾讯') ||
+    lower.includes('优酷') ||
+    lower.includes('网易云') ||
+    lower.includes('qq音乐')
+  ) {
+    return 'entertainment';
+  }
+  if (
+    lower.includes('洗车') ||
+    lower.includes('代驾') ||
+    lower.includes('保洁') ||
+    lower.includes('家政') ||
+    lower.includes('车主') ||
+    lower.includes('加油') ||
+    lower.includes('充电')
+  ) {
+    return 'home_car_service';
   }
   if (category === 'prepaid') return 'prepaid_stored';
   if (category === 'points') {
@@ -83,7 +119,7 @@ export function inferMajorGroup(
   }
   if (category === 'voucher') return 'voucher_coupon';
   if (channelType === 'travel') return 'lounge_travel';
-  return 'lifestyle_service';
+  return 'home_car_service';
 }
 
 export function formatCurrency(val: number): string {
@@ -386,7 +422,7 @@ export function downloadAssetCsvTemplate(): void {
     '渠道分类(bank/platform/retail/travel)',
     '所属App',
     '资产类型(points/prepaid/voucher/privilege)',
-    '权益大类(credit_points/prepaid_stored/platform_points/lounge_travel/health_care/voucher_coupon/lifestyle_service)',
+    '权益大类(credit_points/prepaid_stored/platform_points/lounge_travel/health_care/voucher_coupon/home_car_service/entertainment)',
     '当前余额',
     '计量单位',
     '单价估值',
@@ -478,8 +514,12 @@ export function parseAssetsFromCSV(rawText: string): BenefitAsset[] {
     健康检查与医疗权益: 'health_care',
     voucher_coupon: 'voucher_coupon',
     有价卡券与立减金: 'voucher_coupon',
-    lifestyle_service: 'lifestyle_service',
-    居家洗车与文娱权益: 'lifestyle_service',
+    home_car_service: 'home_car_service',
+    居家与洗车服务权益: 'home_car_service',
+    entertainment: 'entertainment',
+    文娱与视听权益: 'entertainment',
+    lifestyle_service: 'home_car_service',
+    居家洗车与文娱权益: 'home_car_service',
   };
 
   // Detect whether exported CSV (13 cols, col 9 is total value) or template CSV (12 cols)

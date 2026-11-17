@@ -61,6 +61,14 @@ interface StoredState {
   settings: ReminderSettings;
 }
 
+function normalizeAssetGroup(asset: BenefitAsset): MajorBenefitGroup {
+  const raw = asset.majorGroup as string | undefined;
+  if (!raw || raw === 'lifestyle_service') {
+    return inferMajorGroup(asset.category, asset.channelType, asset.name);
+  }
+  return asset.majorGroup as MajorBenefitGroup;
+}
+
 function loadInitialState(): StoredState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -70,8 +78,7 @@ function loadInitialState(): StoredState {
         return {
           assets: parsed.assets.map((a) => ({
             ...a,
-            majorGroup:
-              a.majorGroup || inferMajorGroup(a.category, a.channelType, a.name),
+            majorGroup: normalizeAssetGroup(a),
           })),
           ledger: parsed.ledger,
           memberships: Array.isArray(parsed.memberships) ? parsed.memberships : [],
@@ -393,8 +400,7 @@ export default function App() {
         setState({
           assets: parsed.assets.map((a) => ({
             ...a,
-            majorGroup:
-              a.majorGroup || inferMajorGroup(a.category, a.channelType, a.name),
+            majorGroup: normalizeAssetGroup(a),
           })),
           ledger: parsed.ledger,
           memberships: Array.isArray(parsed.memberships) ? parsed.memberships : [],
@@ -491,27 +497,31 @@ export default function App() {
   const navItems: {
     id: ActiveTab;
     label: string;
+    shortLabel: string;
     icon: React.ComponentType<{ className?: string }>;
     badgeCount?: number;
   }[] = [
-    { id: 'overview', label: '资产总览与趋势', icon: BarChart3 },
-    { id: 'catalog', label: '权益与路径库', icon: Layers },
+    { id: 'overview', label: '资产总览与趋势', shortLabel: '总览', icon: BarChart3 },
+    { id: 'catalog', label: '权益与路径库', shortLabel: '权益库', icon: Layers },
     {
       id: 'memberships',
       label: '会员体系与续卡',
+      shortLabel: '会员',
       icon: CreditCard,
       badgeCount: dueMembershipCount,
     },
     {
       id: 'reminders',
       label: '到期与续卡提醒',
+      shortLabel: '提醒',
       icon: Bell,
       badgeCount: urgentReminderCount,
     },
-    { id: 'ledger', label: '单笔与综合消长', icon: ListOrdered },
-    { id: 'savings', label: '优惠汇总分析', icon: PieChart },
+    { id: 'ledger', label: '单笔与综合消长', shortLabel: '消长', icon: ListOrdered },
+    { id: 'savings', label: '优惠汇总分析', shortLabel: '汇总', icon: PieChart },
   ];
 
+  const mobileTabItems = navItems.slice(0, 5);
   const activeTitle = navItems.find((n) => n.id === activeTab)?.label || '资产总览';
 
   return (
@@ -607,12 +617,12 @@ export default function App() {
 
       {/* Main Content Area */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between gap-6 sticky top-0 z-30">
-          <div className="flex items-center gap-3 min-w-0">
+        <header className="h-12 sm:h-16 bg-white/95 backdrop-blur-md border-b border-slate-200 px-3.5 sm:px-6 flex items-center justify-between gap-3 sm:gap-6 sticky top-0 z-30">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-2 -ml-2 text-slate-600 hover:text-slate-900 cursor-pointer"
+              className="lg:hidden min-h-[40px] min-w-[40px] p-2 -ml-2 text-slate-600 hover:text-slate-900 inline-flex items-center justify-center cursor-pointer"
               aria-label="打开菜单"
             >
               <Menu className="w-5 h-5" />
@@ -624,11 +634,11 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
               onClick={() => setDataModalOpen(true)}
-              className="hidden sm:inline-flex px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="hidden sm:inline-flex min-h-[36px] px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Database className="w-3.5 h-3.5" />
               导入 / 导出
@@ -639,9 +649,10 @@ export default function App() {
                 setEditingAsset(null);
                 setAssetModalOpen(true);
               }}
-              className="px-3.5 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="min-h-[36px] px-2.5 sm:px-3.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              录入新权益
+              <span className="sm:hidden">录入</span>
+              <span className="hidden sm:inline">录入新权益</span>
             </button>
             <button
               type="button"
@@ -649,15 +660,16 @@ export default function App() {
                 setConsumeDefaultAssetId(undefined);
                 setConsumeModalOpen(true);
               }}
-              className="px-3.5 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="min-h-[36px] px-2.5 sm:px-3.5 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg inline-flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              记一笔消长
+              <span className="sm:hidden">记一笔</span>
+              <span className="hidden sm:inline">记一笔消长</span>
             </button>
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 max-w-[1440px] w-full mx-auto">
+        <main className="flex-1 p-3.5 sm:p-6 pb-20 lg:pb-6 max-w-[1440px] w-full mx-auto">
           {activeTab === 'overview' && (
             <OverviewView
               assets={state.assets}
@@ -757,6 +769,7 @@ export default function App() {
                 setConsumeModalOpen(true);
               }}
               onDeleteLedgerEntry={handleDeleteLedgerEntry}
+              onNavigateSavings={() => setActiveTab('savings')}
             />
           )}
 
@@ -818,9 +831,40 @@ export default function App() {
         onClearAllData={handleClearAllData}
       />
 
+      {/* Mobile Thumb-Zone Bottom Tab Bar */}
+      <nav
+        aria-label="移动端主导航"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 h-14 bg-white/95 backdrop-blur-md border-t border-slate-200 grid grid-cols-5"
+      >
+        {mobileTabItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setActiveTab(item.id)}
+              className={`relative flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+                isActive ? 'text-teal-700' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <div className="relative">
+                <Icon className="w-4 h-4" />
+                {item.badgeCount != null && item.badgeCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[14px] h-3.5 px-1 rounded-full bg-amber-600 text-white text-[9px] leading-3.5 font-mono-num text-center">
+                    {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                  </span>
+                )}
+              </div>
+              <span className="truncate max-w-full px-1">{item.shortLabel}</span>
+            </button>
+          );
+        })}
+      </nav>
+
       {/* Non-intrusive Toast */}
       {toastMsg && (
-        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-lg shadow-lg">
+        <div className="fixed bottom-16 lg:bottom-5 left-3 right-3 sm:left-auto sm:right-5 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-lg shadow-lg text-center sm:text-left">
           {toastMsg}
         </div>
       )}

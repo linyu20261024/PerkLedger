@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { ArrowDownUp } from 'lucide-react';
 import { BenefitAsset, LedgerEntry } from '../types/benefits';
 import {
   ASSET_CATEGORY_LABELS,
@@ -17,6 +18,8 @@ export const SavingsSummaryView: React.FC<SavingsSummaryViewProps> = ({
   ledger,
   onOpenConsumeModal,
 }) => {
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
+
   const analytics = useMemo(() => {
     const savingTxs = ledger.filter((tx) => tx.savedRmb > 0);
     const totalSaved = savingTxs.reduce((sum, tx) => sum + tx.savedRmb, 0);
@@ -49,7 +52,9 @@ export const SavingsSummaryView: React.FC<SavingsSummaryViewProps> = ({
       cur.original += tx.originalPriceRmb ?? tx.savedRmb;
       channelMap.set(tx.channelName, cur);
     }
-    const byChannel = Array.from(channelMap.values()).sort((a, b) => b.saved - a.saved);
+    const byChannel = Array.from(channelMap.values()).sort((a, b) =>
+      sortDir === 'desc' ? b.saved - a.saved : a.saved - b.saved
+    );
 
     // By category
     const categoryMap = new Map<string, { label: string; saved: number; count: number }>();
@@ -63,7 +68,9 @@ export const SavingsSummaryView: React.FC<SavingsSummaryViewProps> = ({
       cur.count += 1;
       categoryMap.set(tx.category, cur);
     }
-    const byCategory = Array.from(categoryMap.values()).sort((a, b) => b.saved - a.saved);
+    const byCategory = Array.from(categoryMap.values()).sort((a, b) =>
+      sortDir === 'desc' ? b.saved - a.saved : a.saved - b.saved
+    );
 
     // By month (last 6 months present)
     const monthMap = new Map<string, number>();
@@ -76,8 +83,10 @@ export const SavingsSummaryView: React.FC<SavingsSummaryViewProps> = ({
       .sort((a, b) => a.month.localeCompare(b.month));
 
     const topRedemptions = [...savingTxs]
-      .sort((a, b) => b.savedRmb - a.savedRmb)
+      .sort((a, b) => (sortDir === 'desc' ? b.savedRmb - a.savedRmb : a.savedRmb - b.savedRmb))
       .slice(0, 6);
+
+    const maxChannelSaved = Math.max(1, ...byChannel.map((c) => c.saved));
 
     return {
       totalSaved,
@@ -90,70 +99,81 @@ export const SavingsSummaryView: React.FC<SavingsSummaryViewProps> = ({
       byCategory,
       byMonth,
       topRedemptions,
+      maxChannelSaved,
     };
-  }, [assets, ledger]);
+  }, [assets, ledger, sortDir]);
 
-  const maxChannelSaved = analytics.byChannel[0]?.saved || 1;
+  const maxChannelSaved = analytics.maxChannelSaved;
   const maxMonthSaved = Math.max(1, ...analytics.byMonth.map((m) => m.saved));
 
   return (
-    <div className="space-y-6">
-      {/* Top 4 Summary Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="text-xs font-medium text-slate-500">累计优惠节省总额</div>
-          <div className="mt-2 text-2xl font-bold font-mono-num text-emerald-700">
+    <div className="space-y-5 sm:space-y-6">
+      {/* Top 4 Summary Metrics (2x2 on mobile) */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-5">
+          <div className="text-[11px] sm:text-xs font-medium text-slate-500">累计优惠节省总额</div>
+          <div className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold font-mono-num text-emerald-700 truncate">
             {formatCurrency(analytics.totalSaved)}
           </div>
-          <div className="mt-2 text-xs text-slate-500">
+          <div className="mt-1.5 sm:mt-2 text-[11px] sm:text-xs text-slate-500 truncate">
             累计核销省钱 {analytics.savingTxCount} 笔
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="text-xs font-medium text-slate-500">综合优惠折扣率</div>
-          <div className="mt-2 text-2xl font-bold font-mono-num text-slate-900">
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-5">
+          <div className="text-[11px] sm:text-xs font-medium text-slate-500">综合优惠折扣率</div>
+          <div className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold font-mono-num text-slate-900 truncate">
             {analytics.avgSaveRate.toFixed(1)}%
           </div>
-          <div className="mt-2 text-xs text-slate-500">
-            覆盖消费原价 {formatCurrency(analytics.totalOriginalSpend)}
+          <div className="mt-1.5 sm:mt-2 text-[11px] sm:text-xs text-slate-500 truncate">
+            原价 {formatCurrency(analytics.totalOriginalSpend)}
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="text-xs font-medium text-slate-500">待释放存量权益估值</div>
-          <div className="mt-2 text-2xl font-bold font-mono-num text-teal-700">
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-5">
+          <div className="text-[11px] sm:text-xs font-medium text-slate-500">待释放存量估值</div>
+          <div className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold font-mono-num text-teal-700 truncate">
             {formatCurrency(analytics.remainingValue)}
           </div>
-          <div className="mt-2 text-xs text-slate-500">后续核销可继续转化为优惠</div>
+          <div className="mt-1.5 sm:mt-2 text-[11px] sm:text-xs text-slate-500 truncate">后续核销可转化优惠</div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="text-xs font-medium text-slate-500">过期作废损耗统计</div>
-          <div className="mt-2 text-2xl font-bold font-mono-num text-red-600">
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-5">
+          <div className="text-[11px] sm:text-xs font-medium text-slate-500">过期作废损耗统计</div>
+          <div className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold font-mono-num text-red-600 truncate">
             {formatCurrency(analytics.totalExpiredLoss)}
           </div>
-          <div className="mt-2 text-xs text-slate-500">通过临期提醒尽量降为零损耗</div>
+          <div className="mt-1.5 sm:mt-2 text-[11px] sm:text-xs text-slate-500 truncate">临期提醒助力降损</div>
         </div>
       </div>
 
       {/* Middle 2 Columns: Channel Ranking + Monthly Trend & Category Breakdown */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
-        <section className="xl:col-span-7 bg-white border border-slate-200 rounded-xl p-5">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+        <section className="xl:col-span-7 bg-white border border-slate-200 rounded-xl p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-4 border-b border-slate-100">
             <div>
               <h2 className="text-base font-semibold text-slate-900">各渠道累计优惠贡献排行</h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 统计银行、生活平台与储值卡消费核销实际节省金额
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onOpenConsumeModal}
-              className="px-3 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors cursor-pointer"
-            >
-              补充核销记录
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
+                className="min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1 cursor-pointer"
+              >
+                <ArrowDownUp className="w-3.5 h-3.5" />
+                {sortDir === 'desc' ? '降序' : '升序'}
+              </button>
+              <button
+                type="button"
+                onClick={onOpenConsumeModal}
+                className="min-h-[36px] px-3 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors cursor-pointer"
+              >
+                补充核销记录
+              </button>
+            </div>
           </div>
 
           {analytics.byChannel.length === 0 ? (

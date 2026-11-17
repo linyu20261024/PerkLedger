@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  ArrowDownUp,
   ArrowRight,
   Bell,
   Copy,
@@ -60,6 +61,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onCopyPath,
   onSelectAsset,
 }) => {
+  const [groupSortDir, setGroupSortDir] = useState<'desc' | 'asc'>('desc');
+
   const kpis = useMemo(() => {
     const totalValuation = assets.reduce((sum, a) => sum + getAssetValueRmb(a), 0);
     const totalSaved = ledger.reduce((sum, tx) => sum + (tx.savedRmb || 0), 0);
@@ -161,15 +164,24 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       }
     }
 
+    for (const bucket of map.values()) {
+      bucket.items.sort((a, b) => {
+        const diff = getAssetValueRmb(a) - getAssetValueRmb(b);
+        return groupSortDir === 'desc' ? -diff : diff;
+      });
+    }
+
     const allBuckets = Array.from(map.values());
-    // Sort buckets: non-empty by value descending, empty ones kept if user wants overview or show populated first
     const populated = allBuckets
       .filter((b) => b.items.length > 0)
-      .sort((a, b) => b.totalValue - a.totalValue);
+      .sort((a, b) => {
+        const diff = a.totalValue - b.totalValue;
+        return groupSortDir === 'desc' ? -diff : diff;
+      });
     const empty = allBuckets.filter((b) => b.items.length === 0);
 
     return { populated, empty, allBuckets };
-  }, [assets, settings.warningWindowDays]);
+  }, [assets, settings.warningWindowDays, groupSortDir]);
 
   const recentTransactions = useMemo(() => {
     return [...ledger].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
@@ -182,14 +194,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           <div>
             <h2 className="text-base font-semibold text-slate-900">开始建立你的全渠道权益与会员账本</h2>
             <p className="mt-1 text-xs text-slate-500">
-              可手动录入银行信用卡积分、平台储值卡、贵宾厅与体检权益、各类会员续卡周期，或直接通过 CSV / JSON 批量导入。
+              可手动录入银行信用卡积分、平台储值卡、贵宾厅与体检口腔权益、各类会员续卡周期，或直接通过 Excel / CSV / JSON 批量导入。
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
               type="button"
               onClick={onOpenDataModal}
-              className="px-3.5 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="min-h-[40px] px-3.5 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Database className="w-3.5 h-3.5" />
               批量导入数据
@@ -197,14 +209,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <button
               type="button"
               onClick={onOpenMembershipModal}
-              className="px-3.5 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="min-h-[40px] px-3.5 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               录入会员体系
             </button>
             <button
               type="button"
               onClick={onOpenAssetModal}
-              className="px-4 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="min-h-[40px] px-4 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               录入第一项权益
             </button>
@@ -212,81 +224,94 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         </div>
       )}
 
-      {/* 4-Column KPI Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="text-xs font-medium text-slate-500">全渠道权益预估总值</div>
-          <div className="mt-2 text-2xl font-bold font-mono-num text-slate-900 tracking-tight">
+      {/* 4-Column KPI Strip (2x2 compact on mobile, 4-col on desktop) */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-5">
+          <div className="text-[11px] sm:text-xs font-medium text-slate-500">全渠道权益预估总值</div>
+          <div className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold font-mono-num text-slate-900 tracking-tight truncate">
             {formatCurrency(kpis.totalValuation)}
           </div>
-          <div className="mt-2 text-xs text-slate-500">
-            覆盖 {kpis.channelCount} 个渠道 · {kpis.activeCount} 项可用资产
+          <div className="mt-1.5 sm:mt-2 text-[11px] sm:text-xs text-slate-500 truncate">
+            {kpis.channelCount} 个渠道 · {kpis.activeCount} 项可用
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="text-xs font-medium text-slate-500">累计实际节省优惠</div>
-          <div className="mt-2 text-2xl font-bold font-mono-num text-emerald-700 tracking-tight">
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-5">
+          <div className="text-[11px] sm:text-xs font-medium text-slate-500">累计实际节省优惠</div>
+          <div className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold font-mono-num text-emerald-700 tracking-tight truncate">
             {formatCurrency(kpis.totalSaved)}
           </div>
-          <div className="mt-2 text-xs text-slate-500">
-            本月已省{' '}
-            <span className="font-mono-num font-medium text-slate-800">
-              {formatCurrency(kpis.monthSaved)}
+          <div className="mt-1.5 sm:mt-2 flex items-center justify-between gap-1 text-[11px] sm:text-xs text-slate-500">
+            <span className="truncate">
+              本月已省{' '}
+              <span className="font-mono-num font-medium text-slate-800">
+                {formatCurrency(kpis.monthSaved)}
+              </span>
             </span>
+            <button
+              type="button"
+              onClick={() => onNavigate('savings')}
+              className="text-teal-700 hover:text-teal-800 font-medium inline-flex items-center gap-0.5 shrink-0 cursor-pointer"
+            >
+              汇总
+              <ArrowRight className="w-3 h-3" />
+            </button>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">
-              {settings.warningWindowDays}天内临期卡券与续卡
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-5">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">
+              {settings.warningWindowDays}天临期风险
             </span>
             {(kpis.expiringCount > 0 || kpis.dueMembershipCount > 0) && (
-              <span className="text-xs font-medium text-amber-700">需优先处理</span>
+              <span className="text-[11px] font-medium text-amber-700 shrink-0 hidden sm:inline">
+                需优先处理
+              </span>
             )}
           </div>
-          <div className="mt-2 text-2xl font-bold font-mono-num text-amber-700 tracking-tight">
+          <div className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold font-mono-num text-amber-700 tracking-tight truncate">
             {formatCurrency(kpis.expiringValue)}
           </div>
-          <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-            <span>
-              {kpis.expiringCount} 项卡券临期 · {kpis.dueMembershipCount} 项会员待续
+          <div className="mt-1.5 sm:mt-2 flex items-center justify-between gap-1 text-[11px] sm:text-xs text-slate-500">
+            <span className="truncate">
+              {kpis.expiringCount}卡券 · {kpis.dueMembershipCount}会员
             </span>
             <button
               type="button"
               onClick={() => onNavigate('reminders')}
-              className="text-teal-700 hover:text-teal-800 font-medium inline-flex items-center gap-1 cursor-pointer"
+              className="text-teal-700 hover:text-teal-800 font-medium inline-flex items-center gap-0.5 shrink-0 cursor-pointer"
             >
-              处理提醒
-              <ArrowRight className="w-3.5 h-3.5" />
+              提醒
+              <ArrowRight className="w-3 h-3" />
             </button>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col justify-between">
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-5 flex flex-col justify-between">
           <div>
-            <div className="text-xs font-medium text-slate-500">会员与流水台账</div>
-            <div className="mt-2 text-2xl font-bold font-mono-num text-slate-900 tracking-tight">
-              {memberships.length}{' '}
-              <span className="text-sm font-normal text-slate-500">个会员 ·</span>{' '}
-              {ledger.length} <span className="text-sm font-normal text-slate-500">笔流水</span>
+            <div className="text-[11px] sm:text-xs font-medium text-slate-500">会员与流水台账</div>
+            <div className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold font-mono-num text-slate-900 tracking-tight truncate">
+              {memberships.length}
+              <span className="text-xs sm:text-sm font-normal text-slate-500"> 会员 · </span>
+              {ledger.length}
+              <span className="text-xs sm:text-sm font-normal text-slate-500"> 笔</span>
             </div>
           </div>
-          <div className="mt-2 flex items-center justify-between text-xs">
+          <div className="mt-1.5 sm:mt-2 flex items-center justify-between gap-1 text-[11px] sm:text-xs">
             <button
               type="button"
               onClick={() => onNavigate('memberships')}
-              className="text-slate-600 hover:text-slate-900 cursor-pointer"
+              className="text-slate-600 hover:text-slate-900 truncate cursor-pointer"
             >
-              管理会员体系
+              会员体系
             </button>
             <button
               type="button"
               onClick={() => onOpenConsumeModal()}
-              className="text-teal-700 hover:text-teal-800 font-medium inline-flex items-center gap-1 cursor-pointer"
+              className="text-teal-700 hover:text-teal-800 font-medium inline-flex items-center gap-0.5 shrink-0 cursor-pointer"
             >
-              <PlusCircle className="w-3.5 h-3.5" />
+              <PlusCircle className="w-3 h-3" />
               记一笔
             </button>
           </div>
@@ -371,7 +396,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       <button
                         type="button"
                         onClick={() => onCopyPath(asset.appPath, asset.name)}
-                        className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                        className="min-h-[38px] sm:min-h-[34px] px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                       >
                         <Copy className="w-3.5 h-3.5" />
                         复制路径
@@ -379,7 +404,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       <button
                         type="button"
                         onClick={() => onOpenConsumeModal(asset.id)}
-                        className="px-3 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                        className="min-h-[38px] sm:min-h-[34px] px-3.5 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                       >
                         核销消费
                       </button>
@@ -462,7 +487,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   <button
                     type="button"
                     onClick={() => onRenewMembership(m)}
-                    className="px-2.5 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg inline-flex items-center gap-1 shrink-0 cursor-pointer"
+                    className="min-h-[38px] sm:min-h-[34px] px-3 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg inline-flex items-center gap-1 shrink-0 cursor-pointer"
                   >
                     <RefreshCw className="w-3 h-3" />
                     续卡
@@ -475,21 +500,31 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       </div>
 
       {/* Homepage Prominent Section 2: 按大类划分的权益展示 */}
-      <section className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+      <section className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div>
             <h2 className="text-base font-semibold text-slate-900">按大类划分的权益资产展示</h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              自动归集生活购物商旅储值、信用卡积分、平台积分、贵宾厅出行、健康检查与有价卡券大类
+              涵盖生活购物商旅储值、信用卡积分、平台积分、贵宾厅出行、健康与口腔检查、居家洗车、文娱视听及有价卡券
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => onNavigate('catalog')}
-            className="text-xs font-medium text-teal-700 hover:text-teal-800 whitespace-nowrap shrink-0 cursor-pointer self-start sm:self-auto"
-          >
-            前往全渠道权益库 →
-          </button>
+          <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => setGroupSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
+              className="px-2.5 py-1.5 min-h-[36px] text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <ArrowDownUp className="w-3.5 h-3.5" />
+              {groupSortDir === 'desc' ? '按估值降序' : '按估值升序'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('catalog')}
+              className="text-xs font-medium text-teal-700 hover:text-teal-800 whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              权益库 →
+            </button>
+          </div>
         </div>
 
         {groupedAssets.populated.length === 0 ? (

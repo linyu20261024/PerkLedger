@@ -151,16 +151,18 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   const previewVal = (Number(balance) || 0) * (Number(rmbPerUnit) || 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[1px]">
-      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-lg">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-[1px]">
+      <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-xl w-full max-w-xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto shadow-lg">
+        <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden" />
+        <div className="sticky top-0 z-10 bg-white px-5 py-3.5 sm:py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-base font-semibold text-slate-900">
             {editingAsset ? '编辑权益资产与路径' : '录入新渠道权益 / 积分 / 储值卡'}
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-700 rounded-md cursor-pointer"
+            className="p-2 -mr-1 text-slate-400 hover:text-slate-700 rounded-md cursor-pointer"
+            aria-label="关闭弹窗"
           >
             <X className="w-4 h-4" />
           </button>
@@ -183,8 +185,8 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                     setMajorGroup(inferMajorGroup(category, channelType, v));
                   }
                 }}
-                placeholder="如：招行经典白贵宾厅 / 盒马礼品卡"
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
+                placeholder="如：招行经典白贵宾厅 / 口腔检查洗牙 / 盒马礼品卡"
+                className="w-full min-h-[42px] px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
               />
             </div>
 
@@ -349,17 +351,17 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
             />
           </div>
 
-          <div className="pt-2 flex items-center justify-end gap-2">
+          <div className="pt-2 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+              className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
             >
               取消
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg cursor-pointer"
+              className="flex-1 sm:flex-none min-h-[44px] px-5 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg cursor-pointer"
             >
               {editingAsset ? '保存修改' : '确认录入'}
             </button>
@@ -456,16 +458,18 @@ export const MembershipFormModal: React.FC<MembershipFormModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[1px]">
-      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-lg">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-[1px]">
+      <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-xl w-full max-w-xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto shadow-lg">
+        <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden" />
+        <div className="sticky top-0 z-10 bg-white px-5 py-3.5 sm:py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-base font-semibold text-slate-900">
             {editingMembership ? '编辑会员体系与续卡规则' : '录入会员体系与续卡提醒'}
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-700 rounded-md cursor-pointer"
+            className="p-2 -mr-1 text-slate-400 hover:text-slate-700 rounded-md cursor-pointer"
+            aria-label="关闭弹窗"
           >
             <X className="w-4 h-4" />
           </button>
@@ -619,17 +623,17 @@ export const MembershipFormModal: React.FC<MembershipFormModalProps> = ({
             />
           </div>
 
-          <div className="pt-2 flex items-center justify-end gap-2">
+          <div className="pt-2 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+              className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
             >
               取消
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg cursor-pointer"
+              className="flex-1 sm:flex-none min-h-[44px] px-5 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg cursor-pointer"
             >
               {editingMembership ? '保存修改' : '确认录入'}
             </button>
@@ -759,14 +763,16 @@ export const ConsumeFormModal: React.FC<ConsumeFormModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[1px]">
-      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-lg">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-[1px]">
+      <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-xl w-full max-w-lg max-h-[92vh] sm:max-h-[90vh] overflow-y-auto shadow-lg">
+        <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden" />
+        <div className="sticky top-0 z-10 bg-white px-5 py-3.5 sm:py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-base font-semibold text-slate-900">记录消长流水与核销优惠</h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-700 rounded-md cursor-pointer"
+            className="p-2 -mr-1 text-slate-400 hover:text-slate-700 rounded-md cursor-pointer"
+            aria-label="关闭弹窗"
           >
             <X className="w-4 h-4" />
           </button>
@@ -935,18 +941,18 @@ export const ConsumeFormModal: React.FC<ConsumeFormModalProps> = ({
             />
           </div>
 
-          <div className="pt-2 flex items-center justify-end gap-2">
+          <div className="pt-2 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+              className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
             >
               取消
             </button>
             <button
               type="submit"
               disabled={assets.length === 0}
-              className="px-4 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-lg cursor-pointer"
+              className="flex-1 sm:flex-none min-h-[44px] px-5 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-lg cursor-pointer"
             >
               确认记账
             </button>
@@ -1027,14 +1033,16 @@ export const DataManageModal: React.FC<DataModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[1px]">
-      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-lg">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-[1px]">
+      <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-xl w-full max-w-lg max-h-[92vh] sm:max-h-[90vh] overflow-y-auto shadow-lg">
+        <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden" />
+        <div className="sticky top-0 z-10 bg-white px-5 py-3.5 sm:py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-base font-semibold text-slate-900">数据导入与导出中心</h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-700 rounded-md cursor-pointer"
+            className="p-2 -mr-1 text-slate-400 hover:text-slate-700 rounded-md cursor-pointer"
+            aria-label="关闭弹窗"
           >
             <X className="w-4 h-4" />
           </button>

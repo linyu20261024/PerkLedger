@@ -328,8 +328,12 @@ export function parseWorkbookFromExcel(buffer: ArrayBuffer): {
     健康检查与医疗权益: 'health_care',
     voucher_coupon: 'voucher_coupon',
     有价卡券与立减金: 'voucher_coupon',
-    lifestyle_service: 'lifestyle_service',
-    居家洗车与文娱权益: 'lifestyle_service',
+    home_car_service: 'home_car_service',
+    居家与洗车服务权益: 'home_car_service',
+    entertainment: 'entertainment',
+    文娱与视听权益: 'entertainment',
+    lifestyle_service: 'home_car_service',
+    居家洗车与文娱权益: 'home_car_service',
   };
   const reverseCycle: Record<string, MembershipBillingCycle> = {
     monthly: 'monthly',
