@@ -19,6 +19,7 @@ import {
 } from '../types/benefits';
 import {
   ASSET_CATEGORY_LABELS,
+  MAJOR_GROUP_HINTS,
   MAJOR_GROUP_LABELS,
   MAJOR_GROUP_ORDER,
   formatCurrency,
@@ -505,7 +506,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           <div>
             <h2 className="text-base font-semibold text-slate-900">按大类划分的权益资产展示</h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              涵盖生活购物商旅储值、信用卡积分、平台积分、贵宾厅出行、健康与口腔检查、居家洗车、文娱视听及有价卡券
+              涵盖储值卡、信用卡及平台积分、贵宾厅/精选酒店/高尔夫等商旅出行、体检口腔医疗、洗车代驾与居家洗护、文娱视听及有价卡券
             </p>
           </div>
           <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
@@ -539,7 +540,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <div className="text-xs font-semibold text-slate-800 group-hover:text-teal-700">
                   {MAJOR_GROUP_LABELS[g]}
                 </div>
-                <div className="mt-1 text-[11px] text-slate-400">暂无条目 · 点击录入</div>
+                <div className="mt-1 text-[11px] text-slate-500 leading-relaxed">
+                  {MAJOR_GROUP_HINTS[g]}
+                </div>
+                <div className="mt-1.5 text-[11px] text-teal-700/80">暂无条目 · 点击录入</div>
               </button>
             ))}
           </div>

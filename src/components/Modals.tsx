@@ -12,6 +12,7 @@ import {
 } from '../types/benefits';
 import { getTodayISO } from '../data/seedData';
 import {
+  MAJOR_GROUP_HINTS,
   MAJOR_GROUP_LABELS,
   MAJOR_GROUP_ORDER,
   downloadAssetCsvTemplate,
@@ -216,7 +217,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                   setMajorGroup(e.target.value as MajorBenefitGroup);
                   setMajorGroupManual(true);
                 }}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-teal-700"
+                className="w-full min-h-[42px] px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-teal-700"
               >
                 {MAJOR_GROUP_ORDER.map((g) => (
                   <option key={g} value={g}>
@@ -224,6 +225,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                   </option>
                 ))}
               </select>
+              <p className="mt-1 text-[11px] text-slate-500 leading-snug">
+                适用范围：{MAJOR_GROUP_HINTS[majorGroup]}
+              </p>
             </div>
 
             <div>

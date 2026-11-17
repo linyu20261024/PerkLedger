@@ -36,6 +36,17 @@ export const MAJOR_GROUP_LABELS: Record<MajorBenefitGroup, string> = {
   entertainment: '文娱与视听权益',
 };
 
+export const MAJOR_GROUP_HINTS: Record<MajorBenefitGroup, string> = {
+  prepaid_stored: '盒马/京东E卡/星巴克/商超储值卡、携程等平台储值余额',
+  credit_points: '招行/建行/交行/中信等银行信用卡消费积分',
+  platform_points: '国航/东航/南航里程、万豪/亚朵酒店积分、电商平台积分',
+  lounge_travel: '机场/高铁贵宾厅、精选酒店、高尔夫权益、接送机、延误险',
+  health_care: '年度体检、口腔检查/洗牙/洁牙、专家挂号与在线问诊',
+  voucher_coupon: '微信/支付宝立减金、外卖红包、满减消费券、商超代金券',
+  home_car_service: '车主洗车/代驾/加油/充电、家政保洁、家电清洗、衣物洗护、快递寄件',
+  entertainment: '电影观影券、视频/音乐会员权益、演出票务与电子阅读',
+};
+
 export const MAJOR_GROUP_ORDER: MajorBenefitGroup[] = [
   'prepaid_stored',
   'credit_points',
@@ -60,6 +71,15 @@ export function inferMajorGroup(
   name = ''
 ): MajorBenefitGroup {
   const lower = name.toLowerCase();
+
+  // 1. 积分资产优先归入信用卡积分或平台/航司/酒店积分，避免被“酒店”“贵宾”关键词误分
+  if (category === 'points') {
+    return channelType === 'bank' || lower.includes('信用卡')
+      ? 'credit_points'
+      : 'platform_points';
+  }
+
+  // 2. 健康检查与医疗权益（含体检、口腔检查等）
   if (
     lower.includes('体检') ||
     lower.includes('健康') ||
@@ -71,54 +91,95 @@ export function inferMajorGroup(
     lower.includes('补牙') ||
     lower.includes('医疗') ||
     lower.includes('挂号') ||
-    lower.includes('问诊')
+    lower.includes('问诊') ||
+    lower.includes('疫苗') ||
+    lower.includes('理疗') ||
+    lower.includes('中医')
   ) {
     return 'health_care';
   }
+
+  // 3. 贵宾厅与商旅出行权益（含机场/高铁贵宾厅、精选酒店、高尔夫、接送机等）
   if (
     lower.includes('贵宾') ||
+    lower.includes('休息室') ||
     lower.includes('接送') ||
-    lower.includes('房券') ||
-    lower.includes('延误') ||
     lower.includes('快速安检') ||
-    lower.includes('休息室')
+    lower.includes('机场') ||
+    lower.includes('高铁') ||
+    lower.includes('cip') ||
+    lower.includes('要客') ||
+    lower.includes('礼宾') ||
+    lower.includes('精选酒店') ||
+    lower.includes('酒店') ||
+    lower.includes('房券') ||
+    lower.includes('房晚') ||
+    lower.includes('延误') ||
+    lower.includes('高尔夫') ||
+    lower.includes('果岭') ||
+    lower.includes('练球') ||
+    lower.includes('代泊') ||
+    lower.includes('泊车') ||
+    lower.includes('升舱')
   ) {
     return 'lounge_travel';
   }
+
+  // 4. 文娱与视听权益
   if (
     lower.includes('电影') ||
     lower.includes('影票') ||
+    lower.includes('观影') ||
     lower.includes('视频') ||
     lower.includes('音乐') ||
     lower.includes('文娱') ||
     lower.includes('演出') ||
+    lower.includes('话剧') ||
     lower.includes('阅读') ||
     lower.includes('听书') ||
+    lower.includes('视听') ||
     lower.includes('爱奇艺') ||
     lower.includes('腾讯') ||
     lower.includes('优酷') ||
+    lower.includes('芒果') ||
+    lower.includes('b站') ||
+    lower.includes('哔哩') ||
     lower.includes('网易云') ||
     lower.includes('qq音乐')
   ) {
     return 'entertainment';
   }
+
+  // 5. 居家与洗车服务权益（车主服务 + 到家生活服务）
   if (
     lower.includes('洗车') ||
     lower.includes('代驾') ||
-    lower.includes('保洁') ||
-    lower.includes('家政') ||
     lower.includes('车主') ||
     lower.includes('加油') ||
-    lower.includes('充电')
+    lower.includes('充电') ||
+    lower.includes('保养') ||
+    lower.includes('救援') ||
+    lower.includes('停车') ||
+    lower.includes('保洁') ||
+    lower.includes('家政') ||
+    lower.includes('居家') ||
+    lower.includes('洗衣') ||
+    lower.includes('洗护') ||
+    lower.includes('家电清洗') ||
+    lower.includes('维修') ||
+    lower.includes('快递') ||
+    lower.includes('运费') ||
+    lower.includes('寄件') ||
+    lower.includes('跑腿')
   ) {
     return 'home_car_service';
   }
+
   if (category === 'prepaid') return 'prepaid_stored';
-  if (category === 'points') {
-    return channelType === 'bank' ? 'credit_points' : 'platform_points';
-  }
   if (category === 'voucher') return 'voucher_coupon';
   if (channelType === 'travel') return 'lounge_travel';
+  if (channelType === 'bank' && category === 'privilege') return 'lounge_travel';
+  if (channelType === 'retail') return 'voucher_coupon';
   return 'home_car_service';
 }
 
