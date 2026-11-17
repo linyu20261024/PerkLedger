@@ -32,6 +32,7 @@ interface AssetsCatalogViewProps {
   onOpenConsumeModal: (assetId?: string) => void;
   onOpenDataModal: () => void;
   onDeleteAsset: (assetId: string) => void;
+  onDeleteLedgerEntry?: (entryId: string) => void;
   onCopyPath: (path: string, name: string) => void;
 }
 
@@ -47,6 +48,7 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
   onOpenConsumeModal,
   onOpenDataModal,
   onDeleteAsset,
+  onDeleteLedgerEntry,
   onCopyPath,
 }) => {
   const [query, setQuery] = useState('');
@@ -54,6 +56,7 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
   const [channelFilter, setChannelFilter] = useState<'all' | ChannelType>('all');
   const [sortBy, setSortBy] = useState<'value' | 'balance' | 'expiry' | 'channel'>('value');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const filteredAssets = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -355,34 +358,67 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
                       </div>
 
                       <div
-                        className="flex items-center justify-between gap-2 pt-0.5"
+                        className="flex flex-wrap items-center justify-between gap-2 pt-0.5"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <button
                           type="button"
                           onClick={() => onCopyPath(asset.appPath, asset.name)}
-                          className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1.5 cursor-pointer"
+                          className="min-h-[40px] px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1 cursor-pointer"
                         >
                           <Copy className="w-3.5 h-3.5" />
-                          复制路径
+                          复制
                         </button>
 
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => onOpenAssetModal(asset)}
-                            className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                            编辑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onOpenConsumeModal(asset.id)}
-                            className="min-h-[40px] px-3.5 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg cursor-pointer"
-                          >
-                            消长/核销
-                          </button>
+                        <div className="flex items-center gap-1.5">
+                          {pendingDeleteId === asset.id ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onDeleteAsset(asset.id);
+                                  setPendingDeleteId(null);
+                                }}
+                                className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg cursor-pointer"
+                              >
+                                确认删除
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPendingDeleteId(null)}
+                                className="min-h-[40px] px-2.5 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+                              >
+                                取消
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setPendingDeleteId(asset.id)}
+                                className="min-h-[40px] min-w-[40px] p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg inline-flex items-center justify-center cursor-pointer"
+                                title="删除权益"
+                                aria-label="删除权益"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onOpenAssetModal(asset)}
+                                className="min-h-[40px] px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                编辑
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onOpenConsumeModal(asset.id)}
+                                className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg cursor-pointer"
+                              >
+                                消长/核销
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -479,21 +515,53 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="inline-flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => onOpenConsumeModal(asset.id)}
-                                className="px-2.5 py-1 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-md transition-colors cursor-pointer"
-                              >
-                                消长/核销
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onOpenAssetModal(asset)}
-                                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md transition-colors cursor-pointer"
-                                title="编辑权益"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
+                              {pendingDeleteId === asset.id ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      onDeleteAsset(asset.id);
+                                      setPendingDeleteId(null);
+                                    }}
+                                    className="px-2.5 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-md cursor-pointer"
+                                  >
+                                    确认删除
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPendingDeleteId(null)}
+                                    className="px-2 py-1 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md cursor-pointer"
+                                  >
+                                    取消
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => onOpenConsumeModal(asset.id)}
+                                    className="px-2.5 py-1 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-md transition-colors cursor-pointer"
+                                  >
+                                    消长/核销
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => onOpenAssetModal(asset)}
+                                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md transition-colors cursor-pointer"
+                                    title="编辑权益"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPendingDeleteId(asset.id)}
+                                    className="p-1.5 text-slate-400 hover:text-red-600 rounded-md transition-colors cursor-pointer"
+                                    title="删除权益"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -590,29 +658,54 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => onOpenConsumeModal(selectedAsset.id)}
-                  className="flex-1 min-h-[42px] py-2 px-3 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors cursor-pointer"
-                >
-                  记录消费 / 入账
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onOpenAssetModal(selectedAsset)}
-                  className="min-h-[42px] py-2 px-3.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                >
-                  编辑
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDeleteAsset(selectedAsset.id)}
-                  className="min-h-[42px] min-w-[42px] p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg inline-flex items-center justify-center transition-colors cursor-pointer"
-                  title="删除此权益"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+              <div className="flex flex-wrap items-center gap-2 pt-2">
+                {pendingDeleteId === selectedAsset.id ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onDeleteAsset(selectedAsset.id);
+                        setPendingDeleteId(null);
+                      }}
+                      className="flex-1 min-h-[42px] py-2 px-3 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      确认删除该权益（同步清理流水）
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPendingDeleteId(null)}
+                      className="min-h-[42px] py-2 px-3.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                    >
+                      取消
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onOpenConsumeModal(selectedAsset.id)}
+                      className="flex-1 min-h-[42px] py-2 px-3 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors cursor-pointer"
+                    >
+                      记录消费 / 入账
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onOpenAssetModal(selectedAsset)}
+                      className="min-h-[42px] py-2 px-3.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                    >
+                      编辑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPendingDeleteId(selectedAsset.id)}
+                      className="min-h-[42px] min-w-[42px] p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg inline-flex items-center justify-center transition-colors cursor-pointer"
+                      title="删除此权益"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* Single Asset Flow History */}
@@ -633,13 +726,26 @@ export const AssetsCatalogView: React.FC<AssetsCatalogViewProps> = ({
                           </div>
                           <div className="text-slate-400 font-mono-num mt-0.5">{tx.date}</div>
                         </div>
-                        <div className="text-right shrink-0 font-mono-num">
-                          <div className={tx.deltaQuantity >= 0 ? 'text-teal-700' : 'text-slate-900'}>
-                            {tx.deltaQuantity >= 0 ? '+' : ''}
-                            {formatQuantity(tx.deltaQuantity, tx.unitLabel)}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-right font-mono-num">
+                            <div className={tx.deltaQuantity >= 0 ? 'text-teal-700' : 'text-slate-900'}>
+                              {tx.deltaQuantity >= 0 ? '+' : ''}
+                              {formatQuantity(tx.deltaQuantity, tx.unitLabel)}
+                            </div>
+                            {tx.savedRmb > 0 && (
+                              <div className="text-emerald-700">省 {formatCurrency(tx.savedRmb)}</div>
+                            )}
                           </div>
-                          {tx.savedRmb > 0 && (
-                            <div className="text-emerald-700">省 {formatCurrency(tx.savedRmb)}</div>
+                          {onDeleteLedgerEntry && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteLedgerEntry(tx.id)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 rounded-md transition-colors cursor-pointer"
+                              title="撤销并删除此条流水"
+                              aria-label="撤销并删除此条流水"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           )}
                         </div>
                       </div>

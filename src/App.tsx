@@ -233,9 +233,10 @@ export default function App() {
     setState((prev) => ({
       ...prev,
       assets: prev.assets.filter((a) => a.id !== assetId),
+      ledger: prev.ledger.filter((tx) => tx.assetId !== assetId),
     }));
     if (selectedAssetId === assetId) setSelectedAssetId(null);
-    if (target) showToast(`已移除「${target.name}」`);
+    if (target) showToast(`已删除「${target.name}」及相关建档流水`);
   };
 
   const handleSaveMembership = (
@@ -730,6 +731,7 @@ export default function App() {
               }}
               onOpenDataModal={() => setDataModalOpen(true)}
               onDeleteAsset={handleDeleteAsset}
+              onDeleteLedgerEntry={handleDeleteLedgerEntry}
               onCopyPath={handleCopyPath}
             />
           )}
@@ -803,6 +805,7 @@ export default function App() {
           setEditingAsset(null);
         }}
         onSave={handleSaveAsset}
+        onDelete={handleDeleteAsset}
       />
 
       <MembershipFormModal
@@ -813,6 +816,7 @@ export default function App() {
           setEditingMembership(null);
         }}
         onSave={handleSaveMembership}
+        onDelete={handleDeleteMembership}
       />
 
       <ConsumeFormModal

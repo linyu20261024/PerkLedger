@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Download, FileSpreadsheet, RotateCcw, Upload, X } from 'lucide-react';
+import { Download, FileSpreadsheet, RotateCcw, Trash2, Upload, X } from 'lucide-react';
 import {
   AssetCategory,
   BenefitAsset,
@@ -33,6 +33,7 @@ interface AssetFormModalProps {
   editingAsset: BenefitAsset | null;
   onClose: () => void;
   onSave: (assetData: Omit<BenefitAsset, 'id' | 'updatedAt'>, existingId?: string) => void;
+  onDelete?: (assetId: string) => void;
 }
 
 export const AssetFormModal: React.FC<AssetFormModalProps> = ({
@@ -40,6 +41,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   editingAsset,
   onClose,
   onSave,
+  onDelete,
 }) => {
   const [name, setName] = useState('');
   const [channelName, setChannelName] = useState('');
@@ -54,9 +56,11 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   const [appPath, setAppPath] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
+    setConfirmDelete(false);
     if (editingAsset) {
       setName(editingAsset.name);
       setChannelName(editingAsset.channelName);
@@ -355,20 +359,58 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
             />
           </div>
 
-          <div className="pt-2 flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              className="flex-1 sm:flex-none min-h-[44px] px-5 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg cursor-pointer"
-            >
-              {editingAsset ? '保存修改' : '确认录入'}
-            </button>
+          <div className="pt-2 flex flex-wrap items-center justify-between gap-2.5">
+            {editingAsset && onDelete ? (
+              confirmDelete ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onDelete(editingAsset.id);
+                      onClose();
+                    }}
+                    className="min-h-[44px] px-3.5 py-2 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    确认删除该权益
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(false)}
+                    className="min-h-[44px] px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+                  >
+                    不删了
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="min-h-[44px] px-3.5 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  删除此权益
+                </button>
+              )
+            ) : (
+              <span />
+            )}
+
+            <div className="flex items-center gap-2.5 ml-auto">
+              <button
+                type="button"
+                onClick={onClose}
+                className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                className="min-h-[44px] px-5 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg cursor-pointer"
+              >
+                {editingAsset ? '保存修改' : '确认录入'}
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -387,6 +429,7 @@ interface MembershipFormModalProps {
     data: Omit<MembershipRecord, 'id' | 'updatedAt'>,
     existingId?: string
   ) => void;
+  onDelete?: (id: string) => void;
 }
 
 export const MembershipFormModal: React.FC<MembershipFormModalProps> = ({
@@ -394,6 +437,7 @@ export const MembershipFormModal: React.FC<MembershipFormModalProps> = ({
   editingMembership,
   onClose,
   onSave,
+  onDelete,
 }) => {
   const [name, setName] = useState('');
   const [platform, setPlatform] = useState('');
@@ -406,9 +450,11 @@ export const MembershipFormModal: React.FC<MembershipFormModalProps> = ({
   const [appPath, setAppPath] = useState('');
   const [corePerks, setCorePerks] = useState('');
   const [notes, setNotes] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
+    setConfirmDelete(false);
     if (editingMembership) {
       setName(editingMembership.name);
       setPlatform(editingMembership.platform);
@@ -627,20 +673,58 @@ export const MembershipFormModal: React.FC<MembershipFormModalProps> = ({
             />
           </div>
 
-          <div className="pt-2 flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              className="flex-1 sm:flex-none min-h-[44px] px-5 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg cursor-pointer"
-            >
-              {editingMembership ? '保存修改' : '确认录入'}
-            </button>
+          <div className="pt-2 flex flex-wrap items-center justify-between gap-2.5">
+            {editingMembership && onDelete ? (
+              confirmDelete ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onDelete(editingMembership.id);
+                      onClose();
+                    }}
+                    className="min-h-[44px] px-3.5 py-2 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    确认删除会员
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(false)}
+                    className="min-h-[44px] px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+                  >
+                    不删了
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="min-h-[44px] px-3.5 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  删除此会员
+                </button>
+              )
+            ) : (
+              <span />
+            )}
+
+            <div className="flex items-center gap-2.5 ml-auto">
+              <button
+                type="button"
+                onClick={onClose}
+                className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                className="min-h-[44px] px-5 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg cursor-pointer"
+              >
+                {editingMembership ? '保存修改' : '确认录入'}
+              </button>
+            </div>
           </div>
         </form>
       </div>
