@@ -59,11 +59,15 @@ interface StoredState {
   ledger: LedgerEntry[];
   memberships: MembershipRecord[];
   settings: ReminderSettings;
+  groupMigrationV2?: boolean;
 }
 
-function normalizeAssetGroup(asset: BenefitAsset): MajorBenefitGroup {
+function normalizeAssetGroup(
+  asset: BenefitAsset,
+  shouldReinferHomeCar = false
+): MajorBenefitGroup {
   const raw = asset.majorGroup as string | undefined;
-  if (!raw || raw === 'lifestyle_service') {
+  if (!raw || raw === 'lifestyle_service' || (shouldReinferHomeCar && raw === 'home_car_service')) {
     return inferMajorGroup(asset.category, asset.channelType, asset.name);
   }
   return asset.majorGroup as MajorBenefitGroup;
@@ -75,21 +79,23 @@ function loadInitialState(): StoredState {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<StoredState>;
       if (Array.isArray(parsed.assets) && Array.isArray(parsed.ledger)) {
+        const shouldReinferHomeCar = !parsed.groupMigrationV2;
         return {
           assets: parsed.assets.map((a) => ({
             ...a,
-            majorGroup: normalizeAssetGroup(a),
+            majorGroup: normalizeAssetGroup(a, shouldReinferHomeCar),
           })),
           ledger: parsed.ledger,
           memberships: Array.isArray(parsed.memberships) ? parsed.memberships : [],
           settings: parsed.settings || { warningWindowDays: 30, urgentWindowDays: 7 },
+          groupMigrationV2: true,
         };
       }
     }
   } catch {
     // Fallback to empty state on malformed localStorage
   }
-  return createEmptyState();
+  return { ...createEmptyState(), groupMigrationV2: true };
 }
 
 export default function App() {
@@ -397,14 +403,16 @@ export default function App() {
     try {
       const parsed = JSON.parse(raw) as Partial<StoredState>;
       if (Array.isArray(parsed.assets) && Array.isArray(parsed.ledger)) {
+        const shouldReinferHomeCar = !parsed.groupMigrationV2;
         setState({
           assets: parsed.assets.map((a) => ({
             ...a,
-            majorGroup: normalizeAssetGroup(a),
+            majorGroup: normalizeAssetGroup(a, shouldReinferHomeCar),
           })),
           ledger: parsed.ledger,
           memberships: Array.isArray(parsed.memberships) ? parsed.memberships : [],
           settings: parsed.settings || { warningWindowDays: 30, urgentWindowDays: 7 },
+          groupMigrationV2: true,
         });
         showToast('已成功从 JSON 备份恢复全部数据');
       } else {
@@ -488,7 +496,7 @@ export default function App() {
   };
 
   const handleClearAllData = () => {
-    const fresh = createEmptyState();
+    const fresh = { ...createEmptyState(), groupMigrationV2: true };
     setState(fresh);
     setSelectedAssetId(null);
     showToast('已清空全部本地数据');

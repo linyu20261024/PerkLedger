@@ -112,15 +112,19 @@ export function inferMajorGroup(
     lower.includes('礼宾') ||
     lower.includes('精选酒店') ||
     lower.includes('酒店') ||
+    lower.includes('住宿') ||
+    lower.includes('民宿') ||
     lower.includes('房券') ||
     lower.includes('房晚') ||
     lower.includes('延误') ||
     lower.includes('高尔夫') ||
+    lower.includes('练习场') ||
     lower.includes('果岭') ||
     lower.includes('练球') ||
     lower.includes('代泊') ||
     lower.includes('泊车') ||
-    lower.includes('升舱')
+    lower.includes('升舱') ||
+    lower.includes('机票')
   ) {
     return 'lounge_travel';
   }
@@ -600,8 +604,13 @@ export function parseAssetsFromCSV(rawText: string): BenefitAsset[] {
     const appName = cols[3] || `${channelName}App`;
     const category = reverseCategory[cols[4]] || 'points';
     const rawGroup = cols[5];
+    const mappedGroup = reverseMajorGroup[rawGroup];
+    const isLegacyGroup =
+      rawGroup === 'lifestyle_service' || rawGroup === '居家洗车与文娱权益';
     const majorGroup =
-      reverseMajorGroup[rawGroup] || inferMajorGroup(category, channelType, name);
+      !mappedGroup || isLegacyGroup
+        ? inferMajorGroup(category, channelType, name)
+        : mappedGroup;
 
     const balance = Math.max(0, Number(cols[6]) || 0);
     const unitLabel = cols[7] || '份';

@@ -421,8 +421,13 @@ export function parseWorkbookFromExcel(buffer: ArrayBuffer): {
         const categoryRaw = String(getField(row, ['资产类型']) || '').trim();
         const category = reverseCategory[categoryRaw] || 'points';
         const majorGroupRaw = String(getField(row, ['权益大类']) || '').trim();
+        const mappedGroup = reverseMajorGroup[majorGroupRaw];
+        const isLegacyGroup =
+          majorGroupRaw === 'lifestyle_service' || majorGroupRaw === '居家洗车与文娱权益';
         const majorGroup =
-          reverseMajorGroup[majorGroupRaw] || inferMajorGroup(category, channelType, name);
+          !mappedGroup || isLegacyGroup
+            ? inferMajorGroup(category, channelType, name)
+            : mappedGroup;
         const balance = Math.max(0, Number(getField(row, ['当前余额', '余额'])) || 0);
         const unitLabel = String(getField(row, ['计量单位', '单位']) || '份').trim();
         const rmbPerUnit = Math.max(
