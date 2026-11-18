@@ -8,6 +8,7 @@ import {
   formatQuantity,
   getAssetValueRmb,
   getDaysUntilExpiry,
+  isMembershipLifetime,
 } from '../utils/calculations';
 
 interface RemindersViewProps {
@@ -68,6 +69,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
 
   const classifiedMemberships = useMemo(() => {
     return memberships
+      .filter((m) => !isMembershipLifetime(m))
       .map((m) => {
         const days = getDaysUntilExpiry(m.expiryDate) ?? 9999;
         const isSnoozed = Boolean(m.snoozedUntil && m.snoozedUntil > todayISO);
@@ -174,7 +176,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
 
           {classifiedMemberships.length === 0 ? (
             <div className="p-10 text-center text-sm text-slate-500">
-              当前没有进入续卡提醒周期的会员记录。
+              当前没有进入续卡提醒周期的会员记录（长期有效会员已自动免提醒）。
             </div>
           ) : (
             <div className="divide-y divide-slate-100">

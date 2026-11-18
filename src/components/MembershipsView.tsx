@@ -16,6 +16,7 @@ import {
   BILLING_CYCLE_LABELS,
   formatCurrency,
   getDaysUntilExpiry,
+  isMembershipLifetime,
 } from '../utils/calculations';
 
 interface MembershipsViewProps {
@@ -35,20 +36,26 @@ export const MembershipsView: React.FC<MembershipsViewProps> = ({
   onSnoozeMembership,
   onCopyPath,
 }) => {
-  const [filter, setFilter] = useState<'all' | 'due' | 'autorenew' | 'expired'>('all');
+  const [filter, setFilter] = useState<'all' | 'due' | 'autorenew' | 'lifetime' | 'expired'>('all');
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<'fee' | 'expiry'>('fee');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const todayISO = new Date().toISOString().slice(0, 10);
 
   const stats = useMemo(() => {
-    let totalFee = 0;
+    let recurringFee = 0;
     let dueSoonCount = 0;
     let autoRenewCount = 0;
+    let lifetimeCount = 0;
 
     for (const m of memberships) {
-      totalFee += m.feeRmb || 0;
+      if (isMembershipLifetime(m)) {
+        lifetimeCount += 1;
+        continue;
+      }
+      recurringFee += m.feeRmb || 0;
       if (m.autoRenew) autoRenewCount += 1;
       const days = getDaysUntilExpiry(m.expiryDate);
       if (days !== null && days <= m.remindBeforeDays) {
@@ -58,9 +65,10 @@ export const MembershipsView: React.FC<MembershipsViewProps> = ({
 
     return {
       totalCount: memberships.length,
-      totalFee,
+      recurringFee,
       dueSoonCount,
       autoRenewCount,
+      lifetimeCount,
     };
   }, [memberships]);
 
@@ -68,10 +76,12 @@ export const MembershipsView: React.FC<MembershipsViewProps> = ({
     const q = query.trim().toLowerCase();
     return [...memberships]
       .filter((m) => {
-        const days = getDaysUntilExpiry(m.expiryDate) ?? 9999;
-        if (filter === 'due' && days > m.remindBeforeDays) return false;
-        if (filter === 'autorenew' && !m.autoRenew) return false;
-        if (filter === 'expired' && days >= 0) return false;
+        const lifetime = isMembershipLifetime(m);
+        const days = lifetime ? 99999 : (getDaysUntilExpiry(m.expiryDate) ?? 99999);
+        if (filter === 'due' && (lifetime || days > m.remindBeforeDays)) return false;
+        if (filter === 'autorenew' && (lifetime || !m.autoRenew)) return false;
+        if (filter === 'lifetime' && !lifetime) return false;
+        if (filter === 'expired' && (lifetime || days >= 0)) return false;
         if (!q) return true;
         return (
           m.name.toLowerCase().includes(q) ||
@@ -86,8 +96,8 @@ export const MembershipsView: React.FC<MembershipsViewProps> = ({
           const diff = a.feeRmb - b.feeRmb;
           return sortDir === 'desc' ? -diff : diff;
         }
-        const da = getDaysUntilExpiry(a.expiryDate) ?? 9999;
-        const db = getDaysUntilExpiry(b.expiryDate) ?? 9999;
+        const da = isMembershipLifetime(a) ? 99999 : (getDaysUntilExpiry(a.expiryDate) ?? 99999);
+        const db = isMembershipLifetime(b) ? 99999 : (getDaysUntilExpiry(b.expiryDate) ?? 99999);
         return sortDir === 'desc' ? db - da : da - db;
       });
   }, [memberships, filter, query, sortBy, sortDir]);
@@ -101,15 +111,19 @@ export const MembershipsView: React.FC<MembershipsViewProps> = ({
           <div className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold font-mono-num text-slate-900">
             {stats.totalCount} <span className="text-xs sm:text-sm font-normal text-slate-500">项</span>
           </div>
-          <div className="mt-1.5 text-[11px] sm:text-xs text-slate-500 truncate">电商、商旅、医疗与银行卡</div>
+          <div className="mt-1.5 text-[11px] sm:text-xs text-slate-500 truncate">
+            {stats.lifetimeCount > 0
+              ? `含 ${stats.lifetimeCount} 项长期有效（免续卡）`
+              : '电商、商旅、医疗与银行卡'}
+          </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-5">
-          <div className="text-[11px] sm:text-xs font-medium text-slate-500">周期会费总投入</div>
+          <div className="text-[11px] sm:text-xs font-medium text-slate-500">周期续卡会费</div>
           <div className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold font-mono-num text-slate-900">
-            {formatCurrency(stats.totalFee)}
+            {formatCurrency(stats.recurringFee)}
           </div>
-          <div className="mt-1.5 text-[11px] sm:text-xs text-slate-500 truncate">单周期续费合计成本</div>
+          <div className="mt-1.5 text-[11px] sm:text-xs text-slate-500 truncate">需定期续费会员合计成本</div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-5">
@@ -138,6 +152,7 @@ export const MembershipsView: React.FC<MembershipsViewProps> = ({
                 { id: 'all', label: `全部会员 (${memberships.length})` },
                 { id: 'due', label: `临期续卡 (${stats.dueSoonCount})` },
                 { id: 'autorenew', label: `自动续费 (${stats.autoRenewCount})` },
+                { id: 'lifetime', label: `长期有效 (${stats.lifetimeCount})` },
                 { id: 'expired', label: '已到期' },
               ] as const
             ).map((tab) => (
@@ -214,7 +229,7 @@ export const MembershipsView: React.FC<MembershipsViewProps> = ({
             <CreditCard className="w-8 h-8 text-slate-300 mx-auto" />
             <p className="mt-3 text-sm font-medium text-slate-900">尚未录入任何会员体系</p>
             <p className="mt-1 text-xs text-slate-500">
-              录入如京东 PLUS、淘宝 88VIP、山姆会员、银行高端信用卡年费或体检/视频会员，系统将按预设周期自动发出续卡与防误扣提醒。
+              支持录入周期付费续卡会员（如京东 PLUS、88VIP、山姆），也支持终身会员/免费等级等长期有效免续卡体系。
             </p>
             <button
               type="button"
@@ -231,15 +246,16 @@ export const MembershipsView: React.FC<MembershipsViewProps> = ({
         ) : (
           <div className="divide-y divide-slate-100">
             {filtered.map((m) => {
-              const days = getDaysUntilExpiry(m.expiryDate) ?? 0;
-              const isOverdue = days < 0;
-              const isDueSoon = days >= 0 && days <= m.remindBeforeDays;
-              const isSnoozed = Boolean(m.snoozedUntil && m.snoozedUntil > todayISO);
+              const lifetime = isMembershipLifetime(m);
+              const days = lifetime ? 99999 : (getDaysUntilExpiry(m.expiryDate) ?? 0);
+              const isOverdue = !lifetime && days < 0;
+              const isDueSoon = !lifetime && days >= 0 && days <= m.remindBeforeDays;
+              const isSnoozed = !lifetime && Boolean(m.snoozedUntil && m.snoozedUntil > todayISO);
 
               return (
                 <div
                   key={m.id}
-                  className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors"
+                  className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors"
                 >
                   <div className="space-y-1.5 min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -248,55 +264,76 @@ export const MembershipsView: React.FC<MembershipsViewProps> = ({
                         · {m.platform} · {m.tierLevel} · {BILLING_CYCLE_LABELS[m.billingCycle]}
                       </span>
                       <span className="font-mono-num text-xs text-slate-700">
-                        · 会费 {formatCurrency(m.feeRmb)}
+                        {lifetime
+                          ? m.feeRmb > 0
+                            ? `· 一次性成本 ${formatCurrency(m.feeRmb)}`
+                            : '· 免费 / 免年费'
+                          : `· 会费 ${formatCurrency(m.feeRmb)}`}
                       </span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span
-                        className={`font-mono-num font-medium ${
-                          isOverdue
-                            ? 'text-red-600'
-                            : isDueSoon
-                              ? 'text-amber-700'
-                              : 'text-slate-600'
-                        }`}
-                      >
-                        {isOverdue
-                          ? `已到期 ${Math.abs(days)} 天 (${m.expiryDate})`
-                          : days === 0
-                            ? `今日到期 (${m.expiryDate})`
-                            : `距续卡剩 ${days} 天 (${m.expiryDate})`}
-                      </span>
-                      <span aria-hidden="true" className="text-slate-300">
-                        ·
-                      </span>
-                      <span className="text-slate-500">提前 {m.remindBeforeDays} 天提醒</span>
-                      <span aria-hidden="true" className="text-slate-300">
-                        ·
-                      </span>
-                      <span className={m.autoRenew ? 'text-teal-700 font-medium' : 'text-slate-500'}>
-                        {m.autoRenew ? '已开启自动续费（注意扣费节点）' : '手动续卡（无自动扣费）'}
-                      </span>
-                      {isSnoozed && (
+                      {lifetime ? (
                         <>
+                          <span className="font-medium text-emerald-700">
+                            长期有效 · 不需考虑续卡
+                          </span>
                           <span aria-hidden="true" className="text-slate-300">
                             ·
                           </span>
-                          <span className="text-slate-400">已暂缓至 {m.snoozedUntil}</span>
+                          <span className="text-slate-500">免到期提醒 · 无自动扣费</span>
+                        </>
+                      ) : (
+                        <>
+                          <span
+                            className={`font-mono-num font-medium ${
+                              isOverdue
+                                ? 'text-red-600'
+                                : isDueSoon
+                                  ? 'text-amber-700'
+                                  : 'text-slate-600'
+                            }`}
+                          >
+                            {isOverdue
+                              ? `已到期 ${Math.abs(days)} 天 (${m.expiryDate})`
+                              : days === 0
+                                ? `今日到期 (${m.expiryDate})`
+                                : `距续卡剩 ${days} 天 (${m.expiryDate})`}
+                          </span>
+                          <span aria-hidden="true" className="text-slate-300">
+                            ·
+                          </span>
+                          <span className="text-slate-500">提前 {m.remindBeforeDays} 天提醒</span>
+                          <span aria-hidden="true" className="text-slate-300">
+                            ·
+                          </span>
+                          <span
+                            className={m.autoRenew ? 'text-teal-700 font-medium' : 'text-slate-500'}
+                          >
+                            {m.autoRenew ? '已开启自动续费（注意扣费节点）' : '手动续卡（无自动扣费）'}
+                          </span>
+                          {isSnoozed && (
+                            <>
+                              <span aria-hidden="true" className="text-slate-300">
+                                ·
+                              </span>
+                              <span className="text-slate-400">已暂缓至 {m.snoozedUntil}</span>
+                            </>
+                          )}
                         </>
                       )}
                     </div>
 
                     {m.corePerks && (
-                      <div className="text-xs text-slate-700">
-                        核心权益：{m.corePerks}
-                      </div>
+                      <div className="text-xs text-slate-700">核心权益：{m.corePerks}</div>
                     )}
 
                     {m.appPath && (
                       <div className="text-xs text-slate-500 flex items-center gap-2">
-                        <span className="truncate">管理/退订路径：{m.appPath}</span>
+                        <span className="truncate">
+                          {lifetime ? '会员中心路径：' : '管理/退订路径：'}
+                          {m.appPath}
+                        </span>
                         <button
                           type="button"
                           onClick={() => onCopyPath(m.appPath, m.name)}
@@ -310,7 +347,7 @@ export const MembershipsView: React.FC<MembershipsViewProps> = ({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    {(isDueSoon || isOverdue) && !isSnoozed && (
+                    {!lifetime && (isDueSoon || isOverdue) && !isSnoozed && (
                       <button
                         type="button"
                         onClick={() => onSnoozeMembership(m.id, 7)}
@@ -321,32 +358,60 @@ export const MembershipsView: React.FC<MembershipsViewProps> = ({
                       </button>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => onRenewMembership(m)}
-                      className="min-h-[40px] px-3.5 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg inline-flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      确认续卡顺延
-                    </button>
+                    {!lifetime && (
+                      <button
+                        type="button"
+                        onClick={() => onRenewMembership(m)}
+                        className="min-h-[40px] px-3.5 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-lg inline-flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        确认续卡顺延
+                      </button>
+                    )}
 
-                    <button
-                      type="button"
-                      onClick={() => onOpenMembershipModal(m)}
-                      className="min-h-[40px] min-w-[40px] p-2 text-slate-400 hover:text-slate-700 rounded-lg inline-flex items-center justify-center transition-colors cursor-pointer"
-                      title="编辑会员"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
+                    {pendingDeleteId === m.id ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onDeleteMembership(m.id);
+                            setPendingDeleteId(null);
+                          }}
+                          className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg cursor-pointer"
+                        >
+                          确认删除
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPendingDeleteId(null)}
+                          className="min-h-[40px] px-2.5 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+                        >
+                          取消
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onOpenMembershipModal(m)}
+                          className="min-h-[40px] min-w-[40px] p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg inline-flex items-center justify-center transition-colors cursor-pointer"
+                          title="编辑会员"
+                          aria-label="编辑会员"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={() => onDeleteMembership(m.id)}
-                      className="min-h-[40px] min-w-[40px] p-2 text-slate-400 hover:text-red-600 rounded-lg inline-flex items-center justify-center transition-colors cursor-pointer"
-                      title="删除会员"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => setPendingDeleteId(m.id)}
+                          className="min-h-[40px] min-w-[40px] p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg inline-flex items-center justify-center transition-colors cursor-pointer"
+                          title="删除会员"
+                          aria-label="删除会员"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               );

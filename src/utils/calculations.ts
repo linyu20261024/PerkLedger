@@ -63,7 +63,14 @@ export const BILLING_CYCLE_LABELS: Record<MembershipBillingCycle, string> = {
   quarterly: '季卡',
   yearly: '年卡',
   custom: '自定义周期',
+  lifetime: '长期有效（免续卡）',
 };
+
+export function isMembershipLifetime(
+  m: Pick<MembershipRecord, 'billingCycle' | 'expiryDate'>
+): boolean {
+  return m.billingCycle === 'lifetime' || !m.expiryDate;
+}
 
 export function inferMajorGroup(
   category: AssetCategory,
@@ -463,19 +470,22 @@ export function exportMembershipsToCSV(memberships: MembershipRecord[]): void {
     '备注',
   ];
 
-  const rows = memberships.map((m) => [
-    m.name,
-    m.platform,
-    m.tierLevel,
-    BILLING_CYCLE_LABELS[m.billingCycle],
-    String(m.feeRmb),
-    m.autoRenew ? '是' : '否',
-    m.expiryDate,
-    String(m.remindBeforeDays),
-    m.appPath,
-    m.corePerks,
-    m.notes || '',
-  ]);
+  const rows = memberships.map((m) => {
+    const lifetime = isMembershipLifetime(m);
+    return [
+      m.name,
+      m.platform,
+      m.tierLevel,
+      BILLING_CYCLE_LABELS[m.billingCycle],
+      String(m.feeRmb),
+      lifetime ? '无需续费' : m.autoRenew ? '是' : '否',
+      lifetime ? '长期有效' : m.expiryDate || '',
+      lifetime ? '0' : String(m.remindBeforeDays),
+      m.appPath,
+      m.corePerks,
+      m.notes || '',
+    ];
+  });
 
   downloadCSV(`会员体系与续卡台账_${formatISODate(new Date())}.csv`, headers, rows);
 }

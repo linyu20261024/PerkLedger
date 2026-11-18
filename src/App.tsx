@@ -36,6 +36,7 @@ import {
   getAssetValueRmb,
   getDaysUntilExpiry,
   inferMajorGroup,
+  isMembershipLifetime,
   parseAssetsFromCSV,
 } from './utils/calculations';
 import { parseWorkbookFromExcel } from './utils/excel';
@@ -150,6 +151,7 @@ export default function App() {
   const dueMembershipCount = useMemo(() => {
     const today = getTodayISO();
     return state.memberships.filter((m) => {
+      if (isMembershipLifetime(m)) return false;
       if (m.snoozedUntil && m.snoozedUntil > today) return false;
       const days = getDaysUntilExpiry(m.expiryDate, today);
       return days !== null && days <= Math.max(m.remindBeforeDays, state.settings.warningWindowDays);
@@ -267,6 +269,10 @@ export default function App() {
   };
 
   const handleRenewMembership = (membership: MembershipRecord) => {
+    if (isMembershipLifetime(membership) || !membership.expiryDate) {
+      showToast(`「${membership.name}」为长期有效会员，无需续卡`);
+      return;
+    }
     const today = getTodayISO();
     const baseDate =
       membership.expiryDate >= today ? membership.expiryDate : today;

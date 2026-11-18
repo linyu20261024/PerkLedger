@@ -51,17 +51,17 @@ export interface LedgerEntry {
   notes?: string;
 }
 
-export type MembershipBillingCycle = 'monthly' | 'quarterly' | 'yearly' | 'custom';
+export type MembershipBillingCycle = 'monthly' | 'quarterly' | 'yearly' | 'custom' | 'lifetime';
 
 export interface MembershipRecord {
   id: string;
   name: string; // e.g. 京东PLUS会员 / 招行经典白金卡
   platform: string; // e.g. 京东 / 招商银行 / 山姆
   tierLevel: string; // e.g. 年卡 / 黑钻会员 / 经典白
-  feeRmb: number; // 年费或续费成本
+  feeRmb: number; // 年费或续费成本（长期有效可填0或一次性成本）
   billingCycle: MembershipBillingCycle;
   autoRenew: boolean;
-  expiryDate: string; // YYYY-MM-DD
+  expiryDate: string | null; // YYYY-MM-DD or null for lifetime/no-renewal
   remindBeforeDays: number; // e.g. 15, 30
   appPath: string; // 查看或取消自动续费/续卡路径
   corePerks: string; // 包含核心权益摘要

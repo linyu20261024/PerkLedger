@@ -462,7 +462,7 @@ export const MembershipFormModal: React.FC<MembershipFormModalProps> = ({
       setFeeRmb(String(editingMembership.feeRmb));
       setBillingCycle(editingMembership.billingCycle);
       setAutoRenew(editingMembership.autoRenew);
-      setExpiryDate(editingMembership.expiryDate);
+      setExpiryDate(editingMembership.expiryDate || getTodayISO());
       setRemindBeforeDays(String(editingMembership.remindBeforeDays));
       setAppPath(editingMembership.appPath);
       setCorePerks(editingMembership.corePerks);
@@ -484,20 +484,45 @@ export const MembershipFormModal: React.FC<MembershipFormModalProps> = ({
 
   if (!isOpen) return null;
 
+  const isLifetime = billingCycle === 'lifetime';
+
+  const handleModeSwitch = (nextMode: 'recurring' | 'lifetime') => {
+    if (nextMode === 'lifetime') {
+      setBillingCycle('lifetime');
+      setAutoRenew(false);
+      if (!editingMembership && feeRmb === '99') {
+        setFeeRmb('0');
+      }
+      if (!editingMembership && tierLevel === '年度会员') {
+        setTierLevel('终身 / 长期会员');
+      }
+    } else {
+      if (billingCycle === 'lifetime') {
+        setBillingCycle('yearly');
+      }
+      if (!editingMembership && feeRmb === '0') {
+        setFeeRmb('99');
+      }
+      if (!editingMembership && tierLevel === '终身 / 长期会员') {
+        setTierLevel('年度会员');
+      }
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !platform.trim() || !expiryDate) return;
+    if (!name.trim() || !platform.trim() || (!isLifetime && !expiryDate)) return;
 
     onSave(
       {
         name: name.trim(),
         platform: platform.trim(),
-        tierLevel: tierLevel.trim() || '标准会员',
+        tierLevel: tierLevel.trim() || (isLifetime ? '长期会员' : '标准会员'),
         feeRmb: Math.max(0, Number(feeRmb) || 0),
         billingCycle,
-        autoRenew,
-        expiryDate,
-        remindBeforeDays: Math.max(1, Number(remindBeforeDays) || 15),
+        autoRenew: isLifetime ? false : autoRenew,
+        expiryDate: isLifetime ? null : expiryDate,
+        remindBeforeDays: isLifetime ? 15 : Math.max(1, Number(remindBeforeDays) || 15),
         appPath: appPath.trim(),
         corePerks: corePerks.trim(),
         notes: notes.trim() || undefined,
@@ -556,6 +581,34 @@ export const MembershipFormModal: React.FC<MembershipFormModalProps> = ({
             </div>
           </div>
 
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1.5">有效与续卡方式</label>
+            <div className="grid grid-cols-2 p-0.5 bg-slate-100 rounded-lg">
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('recurring')}
+                className={`min-h-[38px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                  !isLifetime
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                周期收费续卡
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('lifetime')}
+                className={`min-h-[38px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                  isLifetime
+                    ? 'bg-white text-emerald-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                长期有效（不需续卡）
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">会员等级 / 卡别</label>
@@ -563,7 +616,7 @@ export const MembershipFormModal: React.FC<MembershipFormModalProps> = ({
                 type="text"
                 value={tierLevel}
                 onChange={(e) => setTierLevel(e.target.value)}
-                placeholder="如：卓越卡 / 黑钻"
+                placeholder={isLifetime ? '如：终身卡 / 免费白金 / 永久会员' : '如：卓越卡 / 黑钻'}
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
               />
             </div>
@@ -572,69 +625,86 @@ export const MembershipFormModal: React.FC<MembershipFormModalProps> = ({
               <label className="block text-xs font-medium text-slate-700 mb-1">续费周期</label>
               <select
                 value={billingCycle}
-                onChange={(e) => setBillingCycle(e.target.value as MembershipBillingCycle)}
+                onChange={(e) => {
+                  const val = e.target.value as MembershipBillingCycle;
+                  if (val === 'lifetime') {
+                    handleModeSwitch('lifetime');
+                  } else {
+                    setBillingCycle(val);
+                  }
+                }}
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-teal-700"
               >
                 <option value="yearly">年卡（自动顺延12个月）</option>
                 <option value="quarterly">季卡（自动顺延3个月）</option>
                 <option value="monthly">月卡（自动顺延1个月）</option>
                 <option value="custom">自定义周期</option>
+                <option value="lifetime">长期有效（不需续卡）</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">会费 / 年费 (¥)</label>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                {isLifetime ? '一次性办卡成本 (¥)' : '会费 / 年费 (¥)'}
+              </label>
               <input
                 type="number"
                 step="any"
                 min="0"
                 value={feeRmb}
                 onChange={(e) => setFeeRmb(e.target.value)}
+                placeholder={isLifetime ? '0 表示免费或达标免年费' : '99'}
                 className="w-full px-3 py-2 text-sm font-mono-num border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
-                到期 / 续卡日期 *
-              </label>
-              <input
-                required
-                type="date"
-                value={expiryDate}
-                onChange={(e) => setExpiryDate(e.target.value)}
-                className="w-full px-3 py-2 text-sm font-mono-num border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
-              />
+          {isLifetime ? (
+            <div className="px-3.5 py-2.5 bg-emerald-50/70 border border-emerald-200 rounded-lg text-xs text-emerald-800 leading-relaxed">
+              当前为「长期有效（免续卡）」模式：不设置到期续卡日，不触发到期或自动扣费提醒，适合终身会员、免费成长体系、有效期内免年费信用卡或长期协议权益。
             </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  到期 / 续卡日期 *
+                </label>
+                <input
+                  required
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  className="w-full px-3 py-2 text-sm font-mono-num border border-slate-200 rounded-lg focus:outline-none focus:border-teal-700"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
-                提前提醒天数
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  提前提醒天数
+                </label>
+                <select
+                  value={remindBeforeDays}
+                  onChange={(e) => setRemindBeforeDays(e.target.value)}
+                  className="w-full px-3 py-2 text-sm font-mono-num border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-teal-700"
+                >
+                  <option value="7">提前 7 天</option>
+                  <option value="15">提前 15 天</option>
+                  <option value="30">提前 30 天</option>
+                  <option value="60">提前 60 天</option>
+                </select>
+              </div>
+
+              <label className="flex items-center gap-2 py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoRenew}
+                  onChange={(e) => setAutoRenew(e.target.checked)}
+                  className="rounded border-slate-300 text-teal-700 focus:ring-teal-700"
+                />
+                <span className="text-xs font-medium text-slate-700">已开启自动续费</span>
               </label>
-              <select
-                value={remindBeforeDays}
-                onChange={(e) => setRemindBeforeDays(e.target.value)}
-                className="w-full px-3 py-2 text-sm font-mono-num border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-teal-700"
-              >
-                <option value="7">提前 7 天</option>
-                <option value="15">提前 15 天</option>
-                <option value="30">提前 30 天</option>
-                <option value="60">提前 60 天</option>
-              </select>
             </div>
-
-            <label className="flex items-center gap-2 py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={autoRenew}
-                onChange={(e) => setAutoRenew(e.target.checked)}
-                className="rounded border-slate-300 text-teal-700 focus:ring-teal-700"
-              />
-              <span className="text-xs font-medium text-slate-700">已开启自动续费</span>
-            </label>
-          </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">

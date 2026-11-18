@@ -28,6 +28,7 @@ import {
   getDaysUntilExpiry,
   getExpiryUrgency,
   inferMajorGroup,
+  isMembershipLifetime,
 } from '../utils/calculations';
 import { TrendCharts } from './TrendCharts';
 
@@ -82,6 +83,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     const expiringValue = expiringAssets.reduce((sum, a) => sum + getAssetValueRmb(a), 0);
 
     const dueMemberships = memberships.filter((m) => {
+      if (isMembershipLifetime(m)) return false;
       const days = getDaysUntilExpiry(m.expiryDate);
       return days !== null && days <= Math.max(m.remindBeforeDays, settings.warningWindowDays);
     });
@@ -118,6 +120,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
   const upcomingMemberships = useMemo(() => {
     return memberships
+      .filter((m) => !isMembershipLifetime(m))
       .map((m) => ({
         membership: m,
         days: getDaysUntilExpiry(m.expiryDate) ?? 9999,
@@ -446,8 +449,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <div className="p-8 text-center text-sm text-slate-500 flex-1 flex flex-col items-center justify-center">
               <p>
                 {memberships.length === 0
-                  ? '尚未录入会员体系（如京东PLUS、88VIP、山姆、银行白金卡等）。'
-                  : '近期暂无待续卡会员。'}
+                  ? '尚未录入会员体系（如京东PLUS、88VIP、山姆或长期有效终身会员）。'
+                  : '近期暂无待续卡会员（长期有效会员免续卡提醒）。'}
               </p>
               {memberships.length === 0 && (
                 <button

@@ -16,6 +16,7 @@ import {
   MAJOR_GROUP_LABELS,
   getAssetValueRmb,
   inferMajorGroup,
+  isMembershipLifetime,
 } from './calculations';
 
 function normalizeExcelDate(val: unknown): string | null {
@@ -167,19 +168,22 @@ export function exportWorkbookToExcel(
   XLSX.utils.book_append_sheet(wb, wsLedger, '消长与优惠流水');
 
   // Sheet 3: 会员体系与续卡
-  const memberRows = memberships.map((m) => ({
-    会员名称: m.name,
-    所属平台: m.platform,
-    会员等级: m.tierLevel,
-    续费周期: BILLING_CYCLE_LABELS[m.billingCycle],
-    会费成本: m.feeRmb,
-    是否自动续费: m.autoRenew ? '是' : '否',
-    到期续卡日期: m.expiryDate,
-    提前提醒天数: m.remindBeforeDays,
-    App内管理路径: m.appPath,
-    核心权益摘要: m.corePerks,
-    备注: m.notes || '',
-  }));
+  const memberRows = memberships.map((m) => {
+    const lifetime = isMembershipLifetime(m);
+    return {
+      会员名称: m.name,
+      所属平台: m.platform,
+      会员等级: m.tierLevel,
+      续费周期: BILLING_CYCLE_LABELS[m.billingCycle],
+      会费成本: m.feeRmb,
+      是否自动续费: lifetime ? '无需续费' : m.autoRenew ? '是' : '否',
+      到期续卡日期: lifetime ? '长期有效' : m.expiryDate || '',
+      提前提醒天数: lifetime ? 0 : m.remindBeforeDays,
+      App内管理路径: m.appPath,
+      核心权益摘要: m.corePerks,
+      备注: m.notes || '',
+    };
+  });
   const wsMembers = XLSX.utils.json_to_sheet(
     memberRows.length > 0
       ? memberRows
@@ -264,7 +268,7 @@ export function downloadExcelTemplate(): void {
       提前提醒天数: 15,
       App内管理路径: '平台App → 我的 → 会员中心 → 续费管理',
       核心权益摘要: '免运费券、专属折扣、联名视频会员',
-      备注: '若无会员可留空此表',
+      备注: '续费周期支持：年卡/季卡/月卡/自定义周期/长期有效；长期有效可留空到期日',
     },
   ]);
   wsMembers['!cols'] = [
@@ -344,6 +348,14 @@ export function parseWorkbookFromExcel(buffer: ArrayBuffer): {
     年卡: 'yearly',
     custom: 'custom',
     自定义周期: 'custom',
+    lifetime: 'lifetime',
+    '长期有效（免续卡）': 'lifetime',
+    长期有效: 'lifetime',
+    长期: 'lifetime',
+    永久有效: 'lifetime',
+    永久: 'lifetime',
+    终身: 'lifetime',
+    免续卡: 'lifetime',
   };
 
   const assets: BenefitAsset[] = [];
@@ -377,12 +389,22 @@ export function parseWorkbookFromExcel(buffer: ArrayBuffer): {
 
         const tierLevel = String(getField(row, ['会员等级', '等级']) || '标准会员').trim();
         const cycleRaw = String(getField(row, ['续费周期', '周期']) || 'yearly').trim();
-        const billingCycle = reverseCycle[cycleRaw] || 'yearly';
+        const parsedCycle = reverseCycle[cycleRaw] || 'yearly';
+        const rawExpiryField = getField(row, ['到期续卡日期', '到期/续卡日期', '到期日期']);
+        const rawExpiryText = String(rawExpiryField || '').trim();
+        const isLifetime =
+          parsedCycle === 'lifetime' ||
+          rawExpiryText === '长期有效' ||
+          rawExpiryText === '永久有效' ||
+          rawExpiryText === '免续卡';
+        const billingCycle: MembershipBillingCycle = isLifetime ? 'lifetime' : parsedCycle;
         const feeRmb = Math.max(0, Number(getField(row, ['会费成本', '会费成本(元)', '会费'])) || 0);
         const autoRaw = String(getField(row, ['是否自动续费', '自动续费']) || '').trim().toLowerCase();
-        const autoRenew = autoRaw === '是' || autoRaw === 'true' || autoRaw === '1' || autoRaw === 'yes';
-        const expiryDate =
-          normalizeExcelDate(getField(row, ['到期续卡日期', '到期/续卡日期', '到期日期'])) || today;
+        const autoRenew = isLifetime
+          ? false
+          : autoRaw === '是' || autoRaw === 'true' || autoRaw === '1' || autoRaw === 'yes';
+        const parsedDate = normalizeExcelDate(rawExpiryField);
+        const expiryDate = isLifetime ? null : parsedDate || today;
         const remindBeforeDays = Math.max(
           1,
           Number(getField(row, ['提前提醒天数', '提醒天数'])) || 15
